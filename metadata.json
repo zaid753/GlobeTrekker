@@ -1,0 +1,7 @@
+{
+  "name": "GlobeTrekker: AI Trip Planner",
+  "description": "An AI-enabled Smart Trip Planner web application that helps users plan detailed itineraries for trips, including stays, food, and travel, using AI recommendations.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

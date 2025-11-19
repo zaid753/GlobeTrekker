@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GlobeTrekker: AI Trip Planner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Added for Marker Clustering -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    
+    <!-- Added for PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+          },
+        },
+      }
+    </script>
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        position: relative;
+        z-index: 1;
+      }
+      body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><g stroke="%23d1d5db" stroke-opacity="0.3" stroke-width="1" fill="none"><path d="M-10 10 C 20 20, 40 20, 70 10 S 100 0, 120 10"/><path d="M-10 30 C 20 40, 40 40, 70 30 S 100 20, 120 30"/><path d="M-10 50 C 20 60, 40 60, 70 50 S 100 40, 120 50"/><path d="M-10 70 C 20 80, 40 80, 70 70 S 100 60, 120 70"/><path d="M-10 90 C 20 100, 40 100, 70 90 S 100 80, 120 90"/><path d="M10 -10 C 20 20, 20 40, 10 70 S 0 100, 10 120"/><path d="M30 -10 C 40 20, 40 40, 30 70 S 20 100, 30 120"/><path d="M50 -10 C 60 20, 60 40, 50 70 S 40 100, 50 120"/><path d="M70 -10 C 80 20, 80 40, 70 70 S 60 100, 70 120"/><path d="M90 -10 C 100 20, 100 40, 90 70 S 80 100, 90 120"/></g></svg>');
+        z-index: -1;
+      }
+      .dark body::before {
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><g stroke="%234b5563" stroke-opacity="0.3" stroke-width="1" fill="none"><path d="M-10 10 C 20 20, 40 20, 70 10 S 100 0, 120 10"/><path d="M-10 30 C 20 40, 40 40, 70 30 S 100 20, 120 30"/><path d="M-10 50 C 20 60, 40 60, 70 50 S 100 40, 120 50"/><path d="M-10 70 C 20 80, 40 80, 70 70 S 100 60, 120 70"/><path d="M-10 90 C 20 100, 40 100, 70 90 S 100 80, 120 90"/><path d="M10 -10 C 20 20, 20 40, 10 70 S 0 100, 10 120"/><path d="M30 -10 C 40 20, 40 40, 30 70 S 20 100, 30 120"/><path d="M50 -10 C 60 20, 60 40, 50 70 S 40 100, 50 120"/><path d="M70 -10 C 80 20, 80 40, 70 70 S 60 100, 70 120"/><path d="M90 -10 C 100 20, 100 40, 90 70 S 80 100, 90 120"/></g></svg>');
+      }
+      /* Custom placeholder styles for better theme consistency */
+      .form-input::placeholder {
+        color: #9ca3af; /* gray-400 */
+      }
+      .leaflet-popup-content-wrapper {
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      }
+      .dark .leaflet-popup-content-wrapper {
+         background-color: #1f2937; /* gray-800 */
+         color: #f3f4f6; /* gray-100 */
+      }
+      .leaflet-popup-tip {
+        background-color: #ffffff;
+      }
+       .dark .leaflet-popup-tip {
+        background-color: #1f2937; /* gray-800 */
+      }
+       .dark .leaflet-tile-pane {
+        filter: brightness(.6) invert(1) contrast(3) hue-rotate(200deg) saturate(.3) brightness(.7);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.28.0",
+    "firebase/app": "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js",
+    "firebase/auth": "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js",
+    "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
