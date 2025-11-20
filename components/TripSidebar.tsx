@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { Itinerary, TripDetails, TravelAdvisory } from '../types';
 import { BriefcaseIcon, PieChartIcon, CheckCircleIcon, ShareIcon } from './icons';
@@ -16,7 +17,10 @@ interface TripSidebarProps {
 
 const TripSidebar: React.FC<TripSidebarProps> = ({ itinerary, details, isAuthenticated, onSaveTrip, onShare, onEditTrip, onPlanNewTrip, advisories }) => {
     
-    const formatCurrency = (amount: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+    const formatCurrency = (amount: number | undefined | null) => {
+        if (amount === undefined || amount === null || isNaN(amount)) return '₹0';
+        return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+    };
 
     const breakdown = itinerary.detailed_cost_breakdown;
     const total = itinerary.total_estimated_cost;

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import type { Itinerary, TripDetails, Activity, Hotel, FlightInfo, TravelAdvisory, LocationPoint, Restaurant, BookingType } from '../types';
 import { 
@@ -5,7 +6,8 @@ import {
     FoodIcon, SightseeingIcon, ActivityIcon, TravelIcon, AccommodationIcon, InfoIcon, 
     CheckCircleIcon, SunIcon, TrainIcon, CloudIcon, CloudRainIcon, CloudLightningIcon, CloudSnowIcon,
     ScooterIcon, PlaneIcon, SparklesIcon, MapIcon, XCircleIcon, BriefcaseIcon, PieChartIcon, 
-    ShareIcon, GlobeIcon, SpinnerIcon, EditIcon, MapPinIcon, CalendarIcon, UserIcon, GripVerticalIcon, FilterIcon, DownloadIcon
+    ShareIcon, GlobeIcon, SpinnerIcon, EditIcon, GripVerticalIcon, FilterIcon, DownloadIcon,
+    CalendarIcon, UserIcon
 } from './icons';
 import UniversalBookingModal from './UniversalBookingModal';
 import BookingDetailsModal from './BookingDetailsModal';
@@ -38,16 +40,32 @@ interface ItineraryReportProps {
 
 type Tab = 'Summary' | 'Itinerary' | 'Map' | 'Stay' | 'Transport' | 'Food' | 'Weather' | 'Budget';
 
-const ImageWithFallback: React.FC<{src?: string | null; alt: string; fallback: React.ReactNode; className?: string}> = ({ src, alt, fallback, className }) => {
-    const [error, setError] = useState(false);
+const ImageWithFallback: React.FC<{src?: string | null; secondarySrc?: string | null; alt: string; fallback: React.ReactNode; className?: string}> = ({ src, secondarySrc, alt, fallback, className }) => {
+    const [currentSrc, setCurrentSrc] = useState<string | null>(src || secondarySrc || null);
+    const [hasError, setHasError] = useState(false);
     const [loaded, setLoaded] = useState(false);
+    const imgRef = useRef<HTMLImageElement>(null);
 
     useEffect(() => {
-        setError(false);
+        setCurrentSrc(src || secondarySrc || null);
+        setHasError(false);
         setLoaded(false);
-    }, [src]);
+    }, [src, secondarySrc]);
 
-    if (!src || error) {
+    const handleError = () => {
+        if (currentSrc === src && secondarySrc) {
+            setCurrentSrc(secondarySrc);
+            setLoaded(false);
+        } else {
+            setHasError(true);
+        }
+    };
+
+    const handleLoad = () => {
+        setLoaded(true);
+    };
+
+    if (!currentSrc || hasError) {
         return <>{fallback}</>;
     }
 
@@ -55,12 +73,13 @@ const ImageWithFallback: React.FC<{src?: string | null; alt: string; fallback: R
         <div className={`relative overflow-hidden ${className}`}>
             {!loaded && <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700 animate-pulse" />}
             <img 
-                src={src} 
+                ref={imgRef}
+                src={currentSrc} 
                 alt={alt} 
                 loading="lazy" 
                 className={`w-full h-full object-cover transition-opacity duration-500 ${loaded ? 'opacity-100' : 'opacity-0'}`} 
-                onLoad={() => setLoaded(true)}
-                onError={() => setError(true)} 
+                onLoad={handleLoad}
+                onError={handleError} 
             />
         </div>
     );
@@ -134,7 +153,10 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
     { name: 'Budget', icon: PieChartIcon },
   ];
 
-  const formatCurrency = (amount: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+  const formatCurrency = (amount: number | undefined | null) => {
+      if (amount === undefined || amount === null || isNaN(amount)) return '₹0';
+      return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+  };
   
   // Simplified currency format for PDF to avoid garbage characters with standard fonts
   const formatCurrencyPDF = (amount: number) => `Rs. ${amount.toLocaleString('en-IN')}`;
@@ -420,7 +442,8 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                              <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700"><SparklesIcon className="h-12 w-12 text-gray-400 animate-pulse" /></div>
                         ) : (
                             <ImageWithFallback 
-                                src={dayPlan.imageUrl || getDummyImageUrl(details.destination, dayPlan.title, dayPlan.day)}
+                                src={dayPlan.imageUrl}
+                                secondarySrc={getDummyImageUrl(details.destination, dayPlan.title, dayPlan.day)}
                                 alt={dayPlan.title} 
                                 fallback={getFallbackUI('activity')}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
@@ -574,18 +597,29 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                      </div>
                 )}
                 
-                {['budget', 'standard', 'luxury'].map(tier => (
+                {(['budget', 'standard', 'luxury'] as const).map(tier => (
                     <div key={tier}>
                         <div className="flex items-center gap-3 mb-6">
                             <h4 className="text-xl font-bold capitalize dark:text-white">{tier} Collection</h4>
                             <div className="flex-grow h-px bg-gray-200 dark:bg-gray-700"></div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                            {itinerary.accommodation_recommendations![tier as keyof typeof itinerary.accommodation_recommendations]?.map((hotel: Hotel) => (
-                                <div key={hotel.name} className="group bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-100 dark:border-gray-700 hover:shadow-xl transition-all duration-300 flex flex-col h-full">
+                            {itinerary.accommodation_recommendations?.[tier]?.map((hotel: Hotel, i: number) => (
+                                <div key={`${hotel.name}-${i}`} className="group bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-100 dark:border-gray-700 hover:shadow-xl transition-all duration-300 flex flex-col h-full">
                                     <div className="h-52 relative overflow-hidden bg-gray-200 dark:bg-gray-700">
-                                        {hotel.imageLoading ? <div className="w-full h-full flex items-center justify-center"><BedIcon className="h-12 w-12 text-gray-400 animate-pulse"/></div> : 
-                                        <ImageWithFallback src={hotel.imageUrl} alt={hotel.name} fallback={getFallbackUI('accommodation')} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />}
+                                        {hotel.imageLoading ? (
+                                            <div className="w-full h-full flex items-center justify-center">
+                                                <BedIcon className="h-12 w-12 text-gray-400 animate-pulse"/>
+                                            </div>
+                                        ) : (
+                                            <ImageWithFallback 
+                                                src={hotel.imageUrl}
+                                                secondarySrc={getDummyImageUrl(details.destination, hotel.name + i, 'hotel')}
+                                                alt={hotel.name} 
+                                                fallback={getFallbackUI('accommodation')} 
+                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                                            />
+                                        )}
                                         <div className="absolute top-3 right-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm text-gray-900 dark:text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm">
                                             {formatCurrency(hotel.estimated_nightly_cost)} / night
                                         </div>
@@ -736,7 +770,8 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                                     </div>
                                     ) : (
                                     <ImageWithFallback 
-                                        src={rest.imageUrl} 
+                                        src={rest.imageUrl}
+                                        secondarySrc={getDummyImageUrl(details.destination, rest.name + idx, 'food')}
                                         alt={rest.name} 
                                         fallback={getFallbackUI('food')}
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
