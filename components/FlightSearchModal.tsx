@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Activity, FlightInfo } from '../types';
 import { searchFlights, AIRLINES } from '../services/bookingService';
-import { CloseIcon, PlaneIcon, SearchIcon, XCircleIcon } from './icons';
+import { CloseIcon, PlaneIcon, SearchIcon, XCircleIcon, FilterIcon } from './icons';
 
 // Simple Debounce Hook
 function useDebounce<T>(value: T, delay: number): T {
@@ -72,6 +72,7 @@ const FlightSearchModal: React.FC<FlightSearchModalProps> = ({ activity, travele
     const [preferredAirlines, setPreferredAirlines] = useState<string[]>([]);
     const [preferredTime, setPreferredTime] = useState<'Any' | 'Morning' | 'Afternoon' | 'Evening'>('Any');
     const [maxStops, setMaxStops] = useState<number>(2); // 0, 1, or 2 for 2+
+    const [sortBy, setSortBy] = useState<'price' | 'duration' | 'departure'>('price');
     const [hasSearched, setHasSearched] = useState(false);
 
     const filters = useMemo(() => ({
@@ -88,6 +89,22 @@ const FlightSearchModal: React.FC<FlightSearchModalProps> = ({ activity, travele
         );
     };
 
+    const parseDuration = (durationStr: string) => {
+        const parts = durationStr.match(/(\d+)h\s*(\d*)m?/);
+        if (!parts) return 0;
+        return parseInt(parts[1]) * 60 + (parseInt(parts[2]) || 0);
+    };
+
+    const sortedResults = useMemo(() => {
+        if (!results) return null;
+        return [...results].sort((a, b) => {
+            if (sortBy === 'price') return a.price - b.price;
+            if (sortBy === 'duration') return parseDuration(a.duration) - parseDuration(b.duration);
+            if (sortBy === 'departure') return a.departureTime.localeCompare(b.departureTime);
+            return 0;
+        });
+    }, [results, sortBy]);
+
     const handleSearch = async (e?: React.FormEvent) => {
         e?.preventDefault();
         if (!hasSearched) {
@@ -99,10 +116,6 @@ const FlightSearchModal: React.FC<FlightSearchModalProps> = ({ activity, travele
         
         try {
             const flightResults = await searchFlights(activity, travelersCount, filters);
-            if (!flightResults || flightResults.length === 0) {
-                // Optional: could handle specific 'no results' error logic here if needed, 
-                // but returning empty array is valid.
-            }
             setResults(flightResults);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Unable to fetch flight data. Please check your connection.");
@@ -190,6 +203,22 @@ const FlightSearchModal: React.FC<FlightSearchModalProps> = ({ activity, travele
                     
                     {hasSearched && (
                         <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
+                             {/* Sort Controls */}
+                             {results && results.length > 0 && (
+                                <div className="flex items-center justify-end gap-2 mb-4">
+                                    <span className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1"><FilterIcon className="h-3 w-3"/> Sort by:</span>
+                                    <select 
+                                        value={sortBy} 
+                                        onChange={(e) => setSortBy(e.target.value as any)}
+                                        className="text-sm border-none bg-transparent font-semibold text-cyan-600 dark:text-cyan-400 focus:ring-0 cursor-pointer"
+                                    >
+                                        <option value="price">Lowest Price</option>
+                                        <option value="duration">Shortest Duration</option>
+                                        <option value="departure">Departure Time</option>
+                                    </select>
+                                </div>
+                             )}
+
                              {isLoading ? (
                                 <div className="space-y-4 py-4">
                                     <FlightSkeleton />
@@ -210,15 +239,15 @@ const FlightSearchModal: React.FC<FlightSearchModalProps> = ({ activity, travele
                                         Try Again
                                     </button>
                                 </div>
-                            ) : results && (
+                            ) : sortedResults && (
                                 <div>
-                                    {results.length > 0 ? (
+                                    {sortedResults.length > 0 ? (
                                         <>
                                             <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">
-                                                Search Results ({results.length})
+                                                Search Results ({sortedResults.length})
                                             </h3>
                                             <div className="space-y-3">
-                                                {results.map((flight, index) => (
+                                                {sortedResults.map((flight, index) => (
                                                     <div key={index} className="bg-white dark:bg-gray-800 p-4 rounded-lg flex items-center gap-4 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
                                                         <AirlineLogo airline={flight.airline} />
                                                         <div className="flex-grow">

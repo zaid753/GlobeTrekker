@@ -1,14 +1,16 @@
+
 import React, { useState, useEffect } from 'react';
 import { MapPinIcon, SpinnerIcon } from './icons';
-
-interface MapWidgetProps {
-    destination: string;
-}
 
 interface WeatherData {
     temp: number;
     description: string;
     icon: string;
+}
+
+interface MapWidgetProps {
+    destination: string;
+    initialWeather?: WeatherData;
 }
 
 const WeatherIcon = ({ iconCode }: { iconCode: string }) => {
@@ -27,26 +29,31 @@ const WeatherIcon = ({ iconCode }: { iconCode: string }) => {
     return <span className="text-4xl">{iconMapping[code] || '🌍'}</span>;
 };
 
-const MapWidget: React.FC<MapWidgetProps> = ({ destination }) => {
-    const [weather, setWeather] = useState<WeatherData | null>(null);
-    const [isWeatherLoading, setIsWeatherLoading] = useState(true);
+const MapWidget: React.FC<MapWidgetProps> = ({ destination, initialWeather }) => {
+    const [weather, setWeather] = useState<WeatherData | null>(initialWeather || null);
+    const [isWeatherLoading, setIsWeatherLoading] = useState(!initialWeather);
     const [weatherError, setWeatherError] = useState<string | null>(null);
 
     useEffect(() => {
+        if (initialWeather) {
+            setWeather(initialWeather);
+            setIsWeatherLoading(false);
+            return;
+        }
+
         const fetchWeather = async () => {
             setIsWeatherLoading(true);
             const apiKey = process.env.OPENWEATHERMAP_API_KEY;
             
             if (!apiKey) {
-                console.warn("OpenWeatherMap API key not configured. Using mock data.");
-                // Use mock data if API key is not available
+                // Silently fall back to mock data if no API key
                 setTimeout(() => {
                     setWeather({
-                        temp: 28,
-                        description: "Partly cloudy",
-                        icon: '03d',
+                        temp: 24,
+                        description: "Sunny",
+                        icon: '01d',
                     });
-                    setWeatherError("Displaying mock weather data. Please configure API key for live data.");
+                    setWeatherError(null);
                     setIsWeatherLoading(false);
                 }, 500);
                 return;
@@ -65,14 +72,16 @@ const MapWidget: React.FC<MapWidgetProps> = ({ destination }) => {
                     icon: data.weather[0].icon,
                 });
             } catch (err) {
-                setWeatherError(err instanceof Error ? err.message : 'Failed to fetch weather.');
+                // On fetch error, just show nothing or keep previous state, don't nag user
+                console.error("Weather fetch failed", err);
+                setWeatherError(null);
             } finally {
                 setIsWeatherLoading(false);
             }
         };
 
         fetchWeather();
-    }, [destination]);
+    }, [destination, initialWeather]);
 
     const mapSrc = `https://maps.google.com/maps?q=${encodeURIComponent(destination)}&t=&z=10&ie=UTF8&iwloc=&output=embed`;
 

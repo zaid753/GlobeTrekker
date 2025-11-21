@@ -1,5 +1,4 @@
 
-
 export interface TripDetails {
   destination: string;
   departureCity: string;
@@ -46,6 +45,14 @@ export interface DetailedCostBreakdown {
   miscellaneous: number;
 }
 
+export interface Review {
+    id: string;
+    author: string;
+    rating: number;
+    comment: string;
+    date: string;
+}
+
 export interface Hotel {
   name: string;
   address: string;
@@ -55,6 +62,7 @@ export interface Hotel {
   estimated_nightly_cost: number;
   imageUrl?: string;
   imageLoading?: boolean;
+  reviews?: Review[];
 }
 
 export interface AccommodationRecommendations {
@@ -97,6 +105,7 @@ export interface Restaurant {
     ambience: string;
     imageUrl?: string;
     imageLoading?: boolean;
+    reviews?: Review[];
 }
 
 export interface FoodRecommendations {

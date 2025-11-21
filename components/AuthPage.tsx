@@ -59,8 +59,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onBack, canGoBack, initialView }) =
       if (error.code === 'auth/popup-closed-by-user') {
           errorMessage = "Sign-in window was closed. Please try again.";
       } else if (error.code === 'auth/unauthorized-domain') {
-          const currentDomain = window.location.hostname;
-          errorMessage = `DOMAIN ERROR: The domain "${currentDomain}" is not authorized for Google Sign-In. Please use "Sign Up" with Email/Password instead.`;
+          // Specific user-friendly message for unauthorized domains (preview environments)
+          errorMessage = "Google Sign-In is currently disabled for this domain. Please use Email/Password to sign up or login instead.";
       } else if (error.code === 'auth/popup-blocked') {
           errorMessage = "The sign-in popup was blocked by your browser. Please allow popups for this site.";
       } else if (error.message) {

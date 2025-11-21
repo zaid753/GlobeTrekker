@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
-import type { TripDetails } from '../types';
+import type { TripDetails, UserPreferences } from '../types';
 import { 
   GlobeIcon, CalendarIcon, UsersIcon, ArrowLeftIcon, 
-  PiggyBankIcon, BuildingIcon, SparklesIcon, PlaneDepartIcon, MapPinIcon, CheckCircleIcon
+  PiggyBankIcon, BuildingIcon, SparklesIcon, PlaneDepartIcon, MapPinIcon, CheckCircleIcon, TrashIcon
 } from './icons';
 import { cities } from '../data/cities';
 
@@ -12,25 +13,31 @@ interface TripFormProps {
   initialDetails?: TripDetails | null;
   onBack: () => void;
   canGoBack: boolean;
+  userPreferences?: UserPreferences;
 }
 
-const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails, onBack, canGoBack }) => {
-  const [destination, setDestination] = useState(initialDetails?.destination || '');
-  const [departureCity, setDepartureCity] = useState(initialDetails?.departureCity || '');
+const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails, onBack, canGoBack, userPreferences }) => {
+  // Initialize state with initialDetails (edit mode) -> userPreferences (defaults) -> empty/default
+  const [departureCity, setDepartureCity] = useState(initialDetails?.departureCity || userPreferences?.defaultDepartureCity || '');
   const [startDate, setStartDate] = useState(initialDetails?.startDate || '');
   const [endDate, setEndDate] = useState(initialDetails?.endDate || '');
   const [travellers, setTravellers] = useState(initialDetails?.travellers || 1);
-  const [travelStyle, setTravelStyle] = useState<'Economy' | 'Standard' | 'Luxury'>(initialDetails?.travelStyle || 'Standard');
+  const [travelStyle, setTravelStyle] = useState<'Economy' | 'Standard' | 'Luxury'>(initialDetails?.travelStyle || userPreferences?.defaultTravelStyle || 'Standard');
   const [budget, setBudget] = useState<number | undefined>(initialDetails?.budget);
-  const [interests, setInterests] = useState<string[]>(initialDetails?.interests || []);
+  const [interests, setInterests] = useState<string[]>(initialDetails?.interests || userPreferences?.defaultInterests || []);
   const [customInterest, setCustomInterest] = useState('');
   const [duration, setDuration] = useState<number | null>(initialDetails?.duration || null);
   
+  // Multi-destination state
+  const [destinations, setDestinations] = useState<string[]>(
+      initialDetails?.destination ? initialDetails.destination.split(', ') : []
+  );
+  const [currentDestinationInput, setCurrentDestinationInput] = useState('');
+  const [destinationSuggestions, setDestinationSuggestions] = useState<string[]>([]);
+
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState<{ [key: string]: string | null }>({});
-
   const [departureSuggestions, setDepartureSuggestions] = useState<string[]>([]);
-  const [destinationSuggestions, setDestinationSuggestions] = useState<string[]>([]);
 
   useEffect(() => {
     if (startDate && endDate) {
@@ -50,6 +57,16 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
     }
   }, [startDate, endDate]);
 
+  const handleDateChange = (newStart: string, newEnd: string) => {
+      setStartDate(newStart);
+      // If new start is after current end, reset end
+      if (newStart && newEnd && new Date(newStart) > new Date(newEnd)) {
+          setEndDate('');
+      } else {
+          setEndDate(newEnd);
+      }
+  };
+
   const handleDepartureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setDepartureCity(value);
@@ -68,9 +85,9 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
     setDepartureSuggestions([]);
   };
   
-  const handleDestinationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDestinationInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setDestination(value);
+    setCurrentDestinationInput(value);
     if (value.trim().length > 0) {
         const lowerCaseValue = value.toLowerCase();
         const startsWith = cities.filter(city => city.toLowerCase().startsWith(lowerCaseValue));
@@ -81,9 +98,27 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
     }
   };
 
-  const handleSelectDestination = (city: string) => {
-    setDestination(city);
-    setDestinationSuggestions([]);
+  const addDestination = (city: string) => {
+      if (city && !destinations.includes(city)) {
+          setDestinations([...destinations, city]);
+          setCurrentDestinationInput('');
+          setDestinationSuggestions([]);
+      }
+  };
+  
+  const removeDestination = (city: string) => {
+      setDestinations(destinations.filter(d => d !== city));
+  };
+
+  const handleSelectDestinationSuggestion = (city: string) => {
+      addDestination(city);
+  };
+
+  const handleDestinationKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+          e.preventDefault();
+          addDestination(currentDestinationInput);
+      }
   };
 
   const handleBudgetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,7 +171,7 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
     switch (step) {
       case 1:
         if (!departureCity) newErrors.departureCity = "Departure city is required.";
-        if (!destination) newErrors.destination = "Destination is required.";
+        if (destinations.length === 0) newErrors.destination = "At least one destination is required.";
         if (!startDate) newErrors.startDate = "Start date is required.";
         if (!endDate) newErrors.endDate = "End date is required.";
         if (duration === null || duration <= 0) newErrors.dates = "End date must be on or after start date.";
@@ -177,19 +212,28 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
     const isStep3Valid = validateStep(3);
 
     if (isStep1Valid && isStep2Valid && isStep3Valid) {
-        onSubmit({ destination, departureCity, startDate, endDate, travellers, travelStyle, budget, interests, duration: duration! });
+        onSubmit({ 
+            destination: destinations.join(', '), 
+            departureCity, 
+            startDate, 
+            endDate, 
+            travellers, 
+            travelStyle, 
+            budget, 
+            interests, 
+            duration: duration! 
+        });
     } else {
         if (!isStep1Valid) setCurrentStep(1);
         else if (!isStep2Valid) setCurrentStep(2);
         else if (!isStep3Valid) setCurrentStep(3);
-        // Do not show alert, errors are displayed inline.
     }
   };
   
   const interestOptions = ['History', 'Food', 'Hiking', 'Art', 'Nightlife', 'Shopping', 'Beaches', 'Adventure', 'Relaxation', 'Museums', 'Nature', 'Sports'];
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 p-4 pt-20 transition-colors duration-300">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 p-4 pt-28 transition-colors duration-300">
       <div className="w-full max-w-3xl bg-white dark:bg-gray-800 rounded-xl shadow-2xl dark:border dark:border-gray-700 p-8 space-y-8 relative">
         {canGoBack && (
             <button 
@@ -228,74 +272,119 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
           <div style={{ display: currentStep === 1 ? 'block' : 'none' }}>
             <div className="p-4 space-y-6 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="relative">
-                        <PlaneDepartIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
-                        <input 
-                            type="text" 
-                            placeholder="Departure City (e.g., Mumbai)" 
-                            value={departureCity} 
-                            onChange={handleDepartureChange}
-                            onBlur={() => setTimeout(() => setDepartureSuggestions([]), 150)}
-                            className={inputStyles} 
-                            autoComplete="off"
-                        />
-                        {departureSuggestions.length > 0 && (
-                            <ul className="absolute z-20 w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-b-lg mt-0 max-h-60 overflow-y-auto shadow-lg">
-                                {departureSuggestions.map((city) => (
-                                    <li 
-                                        key={city} 
-                                        className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                                        onMouseDown={() => handleSelectDeparture(city)}
-                                    >
-                                        {city}
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 ml-1 uppercase">Departure City</label>
+                        <div className="relative">
+                            <PlaneDepartIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
+                            <input 
+                                type="text" 
+                                placeholder="e.g., Mumbai" 
+                                value={departureCity} 
+                                onChange={handleDepartureChange}
+                                onBlur={() => setTimeout(() => setDepartureSuggestions([]), 150)}
+                                className={inputStyles} 
+                                autoComplete="off"
+                            />
+                            {departureSuggestions.length > 0 && (
+                                <ul className="absolute z-20 w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-b-lg mt-0 max-h-60 overflow-y-auto shadow-lg">
+                                    {departureSuggestions.map((city) => (
+                                        <li 
+                                            key={city} 
+                                            className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                                            onMouseDown={() => handleSelectDeparture(city)}
+                                        >
+                                            {city}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
                         {errors.departureCity && <p className="text-red-500 text-xs mt-1 ml-2">{errors.departureCity}</p>}
                     </div>
-                    <div className="relative">
-                        <GlobeIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
-                        <input 
-                            type="text" 
-                            placeholder="Destination (e.g., Goa, India)" 
-                            value={destination} 
-                            onChange={handleDestinationChange} 
-                            onBlur={() => setTimeout(() => setDestinationSuggestions([]), 150)}
-                            className={inputStyles}
-                            autoComplete="off"
-                        />
-                        {destinationSuggestions.length > 0 && (
-                            <ul className="absolute z-20 w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-b-lg mt-0 max-h-60 overflow-y-auto shadow-lg">
-                                {destinationSuggestions.map((city) => (
-                                    <li 
-                                        key={city} 
-                                        className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                                        onMouseDown={() => handleSelectDestination(city)}
+                    
+                    <div>
+                         <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 ml-1 uppercase">Destinations</label>
+                         <div className="relative">
+                            <GlobeIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
+                            <input 
+                                type="text" 
+                                placeholder="Add city (e.g., Paris)" 
+                                value={currentDestinationInput} 
+                                onChange={handleDestinationInputChange}
+                                onKeyDown={handleDestinationKeyDown}
+                                onBlur={() => setTimeout(() => setDestinationSuggestions([]), 150)}
+                                className={inputStyles}
+                                autoComplete="off"
+                            />
+                             {destinationSuggestions.length > 0 && (
+                                <ul className="absolute z-20 w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-b-lg mt-0 max-h-60 overflow-y-auto shadow-lg">
+                                    {destinationSuggestions.map((city) => (
+                                        <li 
+                                            key={city} 
+                                            className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                                            onMouseDown={() => handleSelectDestinationSuggestion(city)}
+                                        >
+                                            {city}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                        
+                        {/* Selected Destinations Tags */}
+                        <div className="flex flex-wrap gap-2 mt-3">
+                            {destinations.map((city, index) => (
+                                <div key={index} className="bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 px-3 py-1 rounded-full flex items-center text-sm font-medium animate-fade-in">
+                                    {city}
+                                    <button 
+                                        type="button"
+                                        onClick={() => removeDestination(city)}
+                                        className="ml-2 text-cyan-600 hover:text-cyan-900 dark:text-cyan-400 dark:hover:text-white focus:outline-none"
                                     >
-                                        {city}
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
+                                        <TrashIcon className="h-3 w-3" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
                         {errors.destination && <p className="text-red-500 text-xs mt-1 ml-2">{errors.destination}</p>}
                     </div>
+
                     <div className="relative">
-                        <label className="absolute -top-2 left-2 inline-block bg-gray-50 dark:bg-transparent px-1 text-xs font-medium text-gray-500 dark:text-gray-400 z-10">Start Date</label>
-                        <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                        <input type="date" value={startDate} min={today} onChange={(e) => setStartDate(e.target.value)} className={inputStyles} />
+                        <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 ml-1 uppercase">Start Date</label>
+                        <div className="relative">
+                            <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
+                            <input 
+                                type="date" 
+                                value={startDate} 
+                                min={today}
+                                onChange={(e) => handleDateChange(e.target.value, endDate)}
+                                className={inputStyles}
+                            />
+                        </div>
+                         {errors.startDate && <p className="text-red-500 text-xs mt-1 ml-2">{errors.startDate}</p>}
                     </div>
+
                     <div className="relative">
-                        <label className="absolute -top-2 left-2 inline-block bg-gray-50 dark:bg-transparent px-1 text-xs font-medium text-gray-500 dark:text-gray-400 z-10">End Date</label>
-                        <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                        <input type="date" value={endDate} min={startDate || today} onChange={(e) => setEndDate(e.target.value)} className={inputStyles} />
+                        <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 ml-1 uppercase">End Date</label>
+                        <div className="relative">
+                             <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
+                            <input 
+                                type="date" 
+                                value={endDate} 
+                                min={startDate || today}
+                                onChange={(e) => handleDateChange(startDate, e.target.value)}
+                                className={inputStyles}
+                            />
+                        </div>
+                        {errors.endDate && <p className="text-red-500 text-xs mt-1 ml-2">{errors.endDate}</p>}
                     </div>
-                    <div className="md:col-span-2 text-center h-6">
-                        {duration && duration > 0 ? (
-                            <p className="font-semibold text-cyan-700 dark:text-cyan-300">Total duration: {duration} {duration > 1 ? 'days' : 'day'}</p>
-                        ) : (
-                            (errors.dates || (startDate && endDate)) && <p className="text-red-500">{errors.dates || "End date must be after start date."}</p>
-                        )}
+
+                    <div className="md:col-span-2 text-center h-6 -mt-2">
+                         {duration && duration > 0 ? (
+                                <p className="font-semibold text-cyan-700 dark:text-cyan-300 text-sm">Total Duration: {duration} {duration > 1 ? 'Days' : 'Day'}</p>
+                            ) : (
+                                (errors.dates || (startDate && endDate)) && <p className="text-red-500 text-sm">{errors.dates || "End date must be after start date."}</p>
+                            )}
                     </div>
                 </div>
             </div>

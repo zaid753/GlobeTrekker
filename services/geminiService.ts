@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import type { TripDetails, Itinerary, ChatMessage, TravelAdvisory, DayPlan, AccommodationRecommendations, Transportation, FoodRecommendations, WeatherForecast, LocationPoint } from '../types';
 
@@ -6,6 +7,9 @@ if (!apiKey) {
   throw new Error("API_KEY environment variable not set. Please configure it to use AI features.");
 }
 const ai = new GoogleGenAI({ apiKey });
+
+// --- Image Caching ---
+const imageCache = new Map<string, string>();
 
 // --- Retry Logic ---
 const retryWithBackoff = async <T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> => {
@@ -19,8 +23,32 @@ const retryWithBackoff = async <T>(fn: () => Promise<T>, retries = 3, delay = 10
             await new Promise(resolve => setTimeout(resolve, delay));
             return retryWithBackoff(fn, retries - 1, delay * 2); // Exponential backoff
         }
-        throw error;
+        
+        // If we're out of retries, or it's a different error, interpret and throw descriptive error
+        let userMessage = "An unexpected error occurred. Please try again.";
+        if (isRateLimit) {
+            userMessage = "We are receiving too many requests right now. Please try again in a few moments.";
+        } else if (isServerOverload) {
+             userMessage = "The AI service is currently overloaded. Please try again later.";
+        } else if (error.message?.includes('SAFETY')) {
+             userMessage = "The request was flagged by safety filters. Please modify your request and try again.";
+        } else if (error.message?.includes('API_KEY')) {
+             userMessage = "There is an issue with the API configuration. Please check your API key.";
+        }
+
+        const newError = new Error(userMessage);
+        (newError as any).originalError = error;
+        throw newError;
     }
+};
+
+export const getDummyImageUrl = (destination: string, keywords: string, seedExtra: number | string) => {
+    const dest = destination || 'destination';
+    const key = keywords || 'travel';
+    const extra = seedExtra || '1';
+    // Deterministic seed logic
+    const seed = `${dest.slice(0, 5)}${key.slice(0, 5)}${extra}`.replace(/[^a-zA-Z0-9]/g, '');
+    return `https://picsum.photos/seed/${seed}/800/600`;
 };
 
 // Reusable sub-schemas
@@ -32,7 +60,7 @@ const hotelSchema = {
         star_rating: { type: Type.NUMBER },
         rating: { type: Type.NUMBER },
         amenities: { type: Type.ARRAY, items: { type: Type.STRING } },
-        estimated_nightly_cost: { type: Type.NUMBER },
+        estimated_nightly_cost: { type: Type.NUMBER, description: "Cost in INR" },
     },
     required: ["name", "address", "star_rating", "rating", "amenities", "estimated_nightly_cost"]
 };
@@ -259,15 +287,18 @@ export const generateCoreItinerary = async (details: TripDetails): Promise<Itine
       
       REQUIREMENTS:
       1. Valid JSON only.
-      2. All costs in INR. detailed_cost_breakdown sum must equal total_estimated_cost.
+      2. All costs in INR. detailed_cost_breakdown sum must equal total_estimated_cost. Use realistic market prices for 2024.
       3. Schedule for exactly ${details.duration} days.
       4. Populate 'travel_details' for Travel activities.
+      5. If multiple destinations are listed, logically split the days between them.
     `;
     return generateContentOrThrow<Itinerary>(prompt, coreItinerarySchema);
 };
 
 export const generateAccommodationRecommendations = async (details: TripDetails): Promise<AccommodationRecommendations | null> => {
-    const prompt = `Recommend 3 budget, 3 standard, 3 luxury hotels in ${details.destination}. Include a specific AI tip for staying in this area (e.g., best neighborhoods). JSON only.`;
+    const prompt = `Recommend 3 budget, 3 standard, 3 luxury hotels in ${details.destination}. 
+    IMPORTANT: estimated_nightly_cost MUST be in INR and reflect current 2024 real-world market rates for this specific location.
+    Include a specific AI tip for staying in this area (e.g., best neighborhoods). JSON only.`;
     const result = await generateAndParse<{ accommodation_recommendations: AccommodationRecommendations }>(prompt, accommodationSchema);
     return result?.accommodation_recommendations || null;
 };
@@ -277,7 +308,7 @@ export const generateTransportationOptions = async (details: TripDetails): Promi
       Transport options from ${details.departureCity} to ${details.destination}.
       Provide at least 3 long distance options (flight, train, bus/car) and local commute suggestions.
       Output MUST BE valid JSON with exact keys: "transportation_options" containing "long_distance_options" (array) and "local_suggestions" (array).
-      Include estimated costs in INR.
+      Include realistic estimated costs in INR.
     `;
     const result = await generateAndParse<{ transportation_options: Transportation }>(prompt, transportationSchema);
     return result?.transportation_options || null;
@@ -286,7 +317,8 @@ export const generateTransportationOptions = async (details: TripDetails): Promi
 export const generateFoodRecommendations = async (details: TripDetails): Promise<FoodRecommendations | null> => {
     const prompt = `
       Recommend 5 restaurants in ${details.destination} matching interests: ${details.interests.join(', ')}.
-      Include price range, estimated cost per person (INR), must-try dishes. JSON only.
+      IMPORTANT: estimated_cost_per_person MUST be in INR and reflect real menu prices for 2024 in this city.
+      Include price range, must-try dishes. JSON only.
     `;
     const result = await generateAndParse<{ food_recommendations: FoodRecommendations }>(prompt, foodSchema);
     return result?.food_recommendations || null;
@@ -301,24 +333,31 @@ export const generateWeatherForecast = async (details: TripDetails): Promise<Wea
 type ImageContext = 'banner' | 'food' | 'hotel' | 'activity';
 
 export const generateImageForActivity = async (prompt: string, context: ImageContext = 'banner'): Promise<string | null> => {
-    return retryWithBackoff(async () => {
-        try {
+    // Check cache first
+    const cacheKey = `${context}:${prompt}`;
+    if (imageCache.has(cacheKey)) {
+        return imageCache.get(cacheKey)!;
+    }
+
+    try {
+        // Slightly increased delay for retries to handle rate limits better
+        const imageUrl = await retryWithBackoff(async () => {
             let fullPrompt = "";
             
             // Optimized prompts for faster/better relevance
             switch (context) {
                 case 'food':
-                    fullPrompt = `Professional food photography of ${prompt}. Gourmet, close-up, 4k.`;
+                    fullPrompt = `Professional food photography of ${prompt}. Authentic dish from the region, gourmet plating, soft lighting, 4k resolution.`;
                     break;
                 case 'hotel':
-                    fullPrompt = `Architecture photography of ${prompt} hotel. High resolution, inviting, 4k.`;
+                    fullPrompt = `Exterior or interior architecture photography of ${prompt}. High-end travel magazine style, inviting atmosphere, 4k resolution.`;
                     break;
                 case 'activity':
-                    fullPrompt = `Travel photography of ${prompt}. Iconic landmark, action shot, photorealistic, 4k.`;
+                    fullPrompt = `Travel photography of ${prompt}. Scenic, vibrant colors, golden hour lighting, 4k resolution.`;
                     break;
                 case 'banner':
                 default:
-                    fullPrompt = `Cinematic travel shot of ${prompt}. Iconic view, high resolution, photorealistic, 4k.`;
+                    fullPrompt = `Cinematic wide shot of ${prompt}. Iconic landmark or landscape, travel wanderlust style, 8k resolution.`;
                     break;
             }
             
@@ -338,11 +377,17 @@ export const generateImageForActivity = async (prompt: string, context: ImageCon
                 return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
             }
             return null;
-        } catch (error) {
-            console.error("Image Gen Error:", error);
-            throw error;
+        }, 3, 2000); 
+
+        if (imageUrl) {
+            imageCache.set(cacheKey, imageUrl);
         }
-    }, 3, 1000); 
+        return imageUrl;
+
+    } catch (error) {
+        console.warn("Image generation failed or rate limited, using fallback.", error);
+        return null;
+    }
 };
 
 export const getChatResponse = async (history: ChatMessage[], newMessage: string, itinerary?: Itinerary | null, details?: TripDetails | null): Promise<string> => {

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import type { User, SavedTrip, UserPreferences } from '../types';
 import SavedTripCard from './SavedTripCard';
@@ -7,7 +8,7 @@ import ConfirmationModal from './ConfirmationModal';
 
 interface UserProfilePageProps {
     user: User;
-    onLoadTrip: (trip: SavedTrip) => void;
+    onLoadTrip: (trip: SavedTrip, index: number) => void;
     onPlanNewTrip: () => void;
     onBack: () => void;
     canGoBack: boolean;
@@ -221,7 +222,7 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({ user, onLoadTrip, onP
                                 <div key={index}>
                                     <SavedTripCard 
                                         trip={trip} 
-                                        onLoad={onLoadTrip} 
+                                        onLoad={() => onLoadTrip(trip, index)} 
                                         onDelete={handleDeleteClick} 
                                         onEdit={onEditTrip}
                                     />

@@ -1,5 +1,7 @@
+
 import React, { useEffect, useRef, useMemo } from 'react';
 import type { DayPlan, TripDetails, Activity, LocationPoint } from '../types';
+import { getDummyImageUrl } from '../services/geminiService';
 
 declare var L: any; // Use Leaflet from CDN
 
@@ -107,7 +109,14 @@ const MapView: React.FC<MapViewProps> = ({ schedule, details, locations }) => {
 
             const marker = L.marker([location.lat, location.lng], { icon: customIcon });
             
-            let popupContent = `<div class="p-1" style="max-height: 200px; overflow-y: auto;"><b class="text-base text-gray-800 dark:text-gray-100">${location.name} (Day ${location.day})</b>`;
+            // Generate Image URL for the popup
+            const imageUrl = getDummyImageUrl(details.destination, location.name, location.day);
+
+            let popupContent = `
+                <div class="p-1" style="width: 220px; font-family: sans-serif;">
+                    <img src="${imageUrl}" alt="${location.name}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 6px; margin-bottom: 8px;" />
+                    <b class="text-base text-gray-800 dark:text-gray-100 block mb-1">${location.name}</b>
+                    <span class="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full font-semibold">Day ${location.day}</span>`;
             
             if (matchingActivities.length > 0) {
                 matchingActivities.forEach(act => {
@@ -115,18 +124,24 @@ const MapView: React.FC<MapViewProps> = ({ schedule, details, locations }) => {
                     popupContent += `
                         <div class="mt-2 border-t border-gray-200 dark:border-gray-600 pt-2">
                             <div class="flex items-center gap-2 mb-1">
-                                <div class="w-5 h-5 text-gray-600 dark:text-gray-300 flex-shrink-0">${actIconSvg}</div>
-                                <p class="m-0 font-semibold text-sm text-gray-700 dark:text-gray-200">${act.time} - ${act.type}</p>
+                                <div style="width: 16px; height: 16px; color: #4b5563;">${actIconSvg}</div>
+                                <p class="m-0 font-semibold text-sm text-gray-700 dark:text-gray-200">${act.time}</p>
                             </div>
-                            <p class="m-0 text-sm text-gray-600 dark:text-gray-400 pl-7">${act.description}</p>
-                            <p class="m-0 text-xs text-gray-500 dark:text-gray-400 pl-7 font-medium">Est. Cost: ${formatCurrency(act.estimated_cost)}</p>
+                            <p class="m-0 text-sm text-gray-600 dark:text-gray-400 pl-6 line-clamp-2">${act.description}</p>
+                            ${act.estimated_cost > 0 ? `<p class="m-0 text-xs text-green-600 dark:text-green-400 pl-6 font-bold mt-1">Est: ${formatCurrency(act.estimated_cost)}</p>` : ''}
                         </div>`;
                 });
             } else {
-                // Fallback content if specific activity isn't matched
-                popupContent += `<p class="m-0 text-sm text-gray-600 dark:text-gray-400 mt-2">Location identified by AI planner.</p>`;
+                popupContent += `<p class="m-0 text-sm text-gray-600 dark:text-gray-400 mt-2">Key location for your trip.</p>`;
             }
-            popupContent += '</div>';
+            
+            // Add External Links
+            popupContent += `
+                <div class="mt-3 flex gap-2">
+                    <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.name + ' ' + details.destination)}" target="_blank" rel="noopener noreferrer" style="flex: 1; text-align: center; background-color: #0891b2; color: white; text-decoration: none; padding: 4px; font-size: 12px; border-radius: 4px; font-weight: bold;">Directions</a>
+                    <a href="https://www.google.com/search?q=${encodeURIComponent(location.name + ' ' + details.destination)}" target="_blank" rel="noopener noreferrer" style="flex: 1; text-align: center; background-color: #f3f4f6; color: #374151; text-decoration: none; padding: 4px; font-size: 12px; border-radius: 4px; font-weight: bold; border: 1px solid #d1d5db;">Info</a>
+                </div>
+            </div>`;
 
             marker.bindPopup(popupContent);
             markers.addLayer(marker);
@@ -139,7 +154,7 @@ const MapView: React.FC<MapViewProps> = ({ schedule, details, locations }) => {
              map.setView([20.5937, 78.9629], 5); // Fallback to India
         }
         
-    }, [locations, dayColors, schedule]);
+    }, [locations, dayColors, schedule, details.destination]);
 
     if (locations.length === 0) {
         return (
@@ -151,7 +166,7 @@ const MapView: React.FC<MapViewProps> = ({ schedule, details, locations }) => {
 
     return (
         <div>
-             <div ref={mapContainerRef} style={{ height: '60vh', borderRadius: '12px' }} aria-label="Interactive map of trip locations"></div>
+             <div ref={mapContainerRef} style={{ height: '60vh', borderRadius: '12px', zIndex: 0 }} aria-label="Interactive map of trip locations"></div>
              <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
                 {Array.from(new Set(locations.map(l => l.day))).sort((a, b) => Number(a) - Number(b)).map(dayNum => (
                      <div key={String(dayNum)} className="flex items-center">

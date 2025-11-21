@@ -147,6 +147,62 @@ export const getBookingDetails = (activity: Activity): any | null => {
     }
 };
 
+export const getAllBookings = (): BookingConfirmation[] => {
+    const bookings: BookingConfirmation[] = [];
+    try {
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('booking_')) {
+                const item = localStorage.getItem(key);
+                if (item) {
+                    try {
+                        bookings.push(JSON.parse(item));
+                    } catch (e) {
+                        console.error("Failed to parse booking", e);
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Error fetching bookings", e);
+    }
+    return bookings.sort((a, b) => {
+        const dateA = new Date(a.details?.bookedAt || 0).getTime();
+        const dateB = new Date(b.details?.bookedAt || 0).getTime();
+        return dateB - dateA;
+    });
+};
+
+export const cancelBooking = (activity: Activity): void => {
+    try {
+        if (!activity) return;
+        const key = createActivityKey(activity);
+        localStorage.removeItem(key);
+    } catch (e) {
+        console.error("Failed to cancel booking", e);
+    }
+};
+
+export const cancelBookingById = (bookingId: string): void => {
+    try {
+         for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('booking_')) {
+                 const item = localStorage.getItem(key);
+                 if (item) {
+                     const booking = JSON.parse(item);
+                     if (booking.bookingId === bookingId) {
+                         localStorage.removeItem(key);
+                         return;
+                     }
+                 }
+            }
+         }
+    } catch (e) {
+        console.error("Failed to cancel booking by ID", e);
+    }
+};
+
 export const checkFlightBookingStatus = checkBookingStatus;
 export const checkHotelBookingStatus = checkBookingStatus;
 export const checkLocalTransportBookingStatus = checkBookingStatus;
