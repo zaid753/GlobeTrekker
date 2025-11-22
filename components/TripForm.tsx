@@ -128,7 +128,14 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
         setErrors(prev => ({ ...prev, budget: null }));
         return;
     }
-    const numValue = parseInt(value);
+    
+    // Prevent entering non-numeric characters (effectively prevents negative signs too)
+    if (!/^\d+$/.test(value)) {
+        return;
+    }
+
+    const numValue = parseInt(value, 10);
+    
     if (numValue < 0) {
       setErrors(prev => ({ ...prev, budget: "Budget cannot be negative." }));
     } else {

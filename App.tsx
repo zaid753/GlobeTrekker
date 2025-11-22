@@ -264,9 +264,15 @@ function App() {
             }
         }
       } else {
+        // Logout Logic: Clear state and redirect to home
         setCurrentUser(null);
         setIsAuthenticated(false);
         setUserPreferences({});
+        setTripDetails(null);
+        setItinerary(null);
+        setEditingTripIndex(null);
+        setView('hero');
+        setViewHistory(['hero']);
       }
     });
     return () => unsubscribe();
@@ -416,7 +422,7 @@ function App() {
           ...coreItinerary,
           schedule: coreItinerary.schedule.map(day => ({
              ...day,
-             imageUrl: getDummyImageUrl(details.destination, day.title, day.day), 
+             imageUrl: getDummyImageUrl(details.destination, day.title, day.day, 'banner'), 
              imageLoading: true
           }))
       };
@@ -495,36 +501,39 @@ function App() {
   
   const handleSaveTrip = () => {
       guardWithAuth(() => {
-          const user = currentUserRef.current;
-          if (!tripDetails || !itinerary || !user) return;
-          
-          const existingTrips: SavedTrip[] = JSON.parse(localStorage.getItem(`savedTrips_${user.email}`) || '[]');
-          let updatedTrips = [...existingTrips];
-          
-          // If we are editing a specific trip index, update it directly
-          if (editingTripIndex !== null && editingTripIndex >= 0 && editingTripIndex < existingTrips.length) {
-              updatedTrips[editingTripIndex] = { details: tripDetails, itinerary };
+          // Short timeout to ensure visual spinner is seen by user
+          setTimeout(() => {
+              const user = currentUserRef.current;
+              if (!tripDetails || !itinerary || !user) return;
+              
+              const existingTrips: SavedTrip[] = JSON.parse(localStorage.getItem(`savedTrips_${user.email}`) || '[]');
+              let updatedTrips = [...existingTrips];
+              
+              // If we are editing a specific trip index, update it directly
+              if (editingTripIndex !== null && editingTripIndex >= 0 && editingTripIndex < existingTrips.length) {
+                  updatedTrips[editingTripIndex] = { details: tripDetails, itinerary };
+                  localStorage.setItem(`savedTrips_${user.email}`, JSON.stringify(updatedTrips));
+                  setToast({ message: 'Trip changes saved successfully!', type: 'success' });
+                  return;
+              }
+
+              // Check for duplicates only if not editing a known index
+              const conflictIndex = existingTrips.findIndex(t => 
+                 t.details.destination === tripDetails.destination && t.details.startDate === tripDetails.startDate
+              );
+
+              if (conflictIndex >= 0 && !currentTripId) {
+                  setSaveConflictModal({ isOpen: true, existingTripIndex: conflictIndex });
+                  return;
+              }
+              
+              const newTrip: SavedTrip = { details: tripDetails, itinerary };
+              updatedTrips.push(newTrip);
+              
               localStorage.setItem(`savedTrips_${user.email}`, JSON.stringify(updatedTrips));
-              setToast({ message: 'Trip updated successfully!', type: 'success' });
-              return;
-          }
-
-          // Check for duplicates only if not editing a known index
-          const conflictIndex = existingTrips.findIndex(t => 
-             t.details.destination === tripDetails.destination && t.details.startDate === tripDetails.startDate
-          );
-
-          if (conflictIndex >= 0 && !currentTripId) {
-              setSaveConflictModal({ isOpen: true, existingTripIndex: conflictIndex });
-              return;
-          }
-          
-          const newTrip: SavedTrip = { details: tripDetails, itinerary };
-          updatedTrips.push(newTrip);
-          
-          localStorage.setItem(`savedTrips_${user.email}`, JSON.stringify(updatedTrips));
-          setEditingTripIndex(updatedTrips.length - 1); // Set as currently editing
-          setToast({ message: 'Trip saved successfully!', type: 'success' });
+              setEditingTripIndex(updatedTrips.length - 1); // Set as currently editing
+              setToast({ message: 'New trip saved successfully!', type: 'success' });
+          }, 800); // 800ms delay for UX
       });
   };
 
@@ -568,6 +577,24 @@ function App() {
       guardWithAuth(action);
   }
 
+  const handleNavbarNavigation = useCallback((sectionId: string) => {
+      if (view !== 'hero') {
+          setView('hero');
+          // Allow time for view switch before scrolling
+          setTimeout(() => {
+              const element = document.getElementById(sectionId);
+              if (element) {
+                  element.scrollIntoView({ behavior: 'smooth' });
+              }
+          }, 100);
+      } else {
+          const element = document.getElementById(sectionId);
+          if (element) {
+              element.scrollIntoView({ behavior: 'smooth' });
+          }
+      }
+  }, [view]);
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-white font-sans transition-colors duration-300">
       <Navbar 
@@ -577,6 +604,8 @@ function App() {
         onSignUpClick={() => { setAuthView('signup'); setIsAuthModalOpen(true); }}
         onLogout={() => logout()}
         onProfileClick={() => navigateTo('profile')}
+        onNavigate={handleNavbarNavigation}
+        currentView={view}
       />
 
       {view === 'hero' && (

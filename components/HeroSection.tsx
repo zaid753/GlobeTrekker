@@ -1,7 +1,6 @@
 
-
-import React from 'react';
-import { ArrowRightIcon, UndoIcon } from './icons';
+import React, { useState, useEffect, useRef } from 'react';
+import { ArrowRightIcon, UndoIcon, SparklesIcon, MapIcon, PiggyBankIcon, CalendarIcon, GlobeIcon, UserIcon, CheckCircleIcon, SendIcon, MapPinIcon } from './icons';
 
 interface HeroSectionProps {
     onPlanTripClick: () => void;
@@ -9,57 +8,544 @@ interface HeroSectionProps {
     hasResumableTrip?: boolean;
 }
 
-const HeroSection: React.FC<HeroSectionProps> = ({ onPlanTripClick, onResumeClick, hasResumableTrip }) => {
-  return (
-    <div className="relative h-screen flex items-center justify-center text-center text-white overflow-hidden">
-        {/* Background Video */}
-        <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="absolute z-0 w-auto min-w-full min-h-full max-w-none"
-        >
-            <source src="https://assets.mixkit.co/videos/preview/mixkit-top-aerial-shot-of-seashore-with-rocks-1090-large.mp4" type="video/mp4" />
-            Your browser does not support the video tag.
-        </video>
+// --- Utility Hook for Scroll Animations ---
+const useScrollReveal = (threshold = 0.1) => {
+    const ref = useRef<HTMLDivElement>(null);
+    const [isVisible, setIsVisible] = useState(false);
 
-        {/* Overlay */}
-        <div className="absolute inset-0 bg-black opacity-60"></div>
-        
-        <div className="relative z-10 p-4">
-            <h1 
-              className="text-5xl md:text-7xl font-extrabold tracking-tight mb-4"
-              style={{ textShadow: '0 4px 15px rgba(0,0,0,0.5)' }}
+    useEffect(() => {
+        const element = ref.current;
+        if (!element) return;
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setIsVisible(true);
+                    observer.disconnect(); // Only animate once
+                }
+            },
+            { threshold }
+        );
+
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, [threshold]);
+
+    return [ref, isVisible] as const;
+};
+
+// --- Parallax Hook ---
+const useParallax = (speed = 0.5) => {
+    const [offset, setOffset] = useState(0);
+    useEffect(() => {
+        const handleScroll = () => requestAnimationFrame(() => setOffset(window.scrollY * speed));
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [speed]);
+    return offset;
+};
+
+const RevealSection = ({ children, className = "", delay = 0 }: { children?: React.ReactNode, className?: string, delay?: number }) => {
+    const [ref, isVisible] = useScrollReveal(0.15);
+    
+    return (
+        <div 
+            ref={ref} 
+            className={`transition-all duration-1000 ease-out transform ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'} ${className}`}
+            style={{ transitionDelay: `${delay}ms` }}
+        >
+            {children}
+        </div>
+    );
+};
+
+const LazyImage = ({ src, alt, className }: { src: string, alt: string, className?: string }) => {
+    const [loaded, setLoaded] = useState(false);
+    const [error, setError] = useState(false);
+
+    return (
+        <div className={`relative overflow-hidden bg-gray-200 dark:bg-gray-800 ${className}`}>
+            {!error ? (
+                <>
+                    <img 
+                        src={src} 
+                        alt={alt} 
+                        loading="lazy"
+                        onLoad={() => setLoaded(true)}
+                        onError={() => setError(true)}
+                        className={`w-full h-full object-cover transition-all duration-1000 ease-out ${loaded ? 'opacity-100 scale-100 blur-0' : 'opacity-0 scale-110 blur-md'}`} 
+                    />
+                    {!loaded && (
+                        <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 dark:from-gray-800 dark:via-gray-700 dark:to-gray-800 animate-pulse" />
+                    )}
+                </>
+            ) : (
+                // Stylish fallback instead of broken icon
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-cyan-900 to-blue-900 text-white p-4 text-center">
+                    <GlobeIcon className="h-8 w-8 mb-2 opacity-50" />
+                    <span className="text-sm font-serif tracking-wider opacity-90">{alt}</span>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const HeroSection: React.FC<HeroSectionProps> = ({ onPlanTripClick, onResumeClick, hasResumableTrip }) => {
+  const parallaxOffset = useParallax(0.4);
+
+  return (
+    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-white font-sans overflow-x-hidden" id="hero-top">
+        <style>{`
+            @keyframes fadeInUp {
+                from { opacity: 0; transform: translateY(30px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            .animate-fade-in-up {
+                animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+                opacity: 0;
+            }
+            .delay-100 { animation-delay: 0.1s; }
+            .delay-200 { animation-delay: 0.2s; }
+            .delay-300 { animation-delay: 0.3s; }
+        `}</style>
+
+        {/* Hero Section with Parallax Video */}
+        <div className="relative h-screen flex items-center justify-center text-center text-white overflow-hidden">
+            <div 
+                className="absolute inset-0 w-full h-full z-0"
+                style={{ transform: `translateY(${parallaxOffset}px)` }}
             >
-                Your Next Adventure, Reimagined
-            </h1>
-            <p 
-              className="text-lg md:text-xl max-w-3xl mx-auto mb-8"
-              style={{ textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}
-            >
-                Stop wondering, start exploring. GlobeTrekker's AI crafts personalized travel itineraries in seconds. Tell us your dreams, and we'll map out the journey.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button
-                    onClick={onPlanTripClick}
-                    className="bg-cyan-600 text-white font-bold py-4 px-8 rounded-full text-lg shadow-xl hover:shadow-2xl hover:-translate-y-1 transform transition-all duration-300 ease-in-out active:scale-95 active:shadow-xl active:translate-y-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-black"
+                <video
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover opacity-60 dark:opacity-40 transition-opacity duration-1000 scale-110"
+                    poster="https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=1920&auto=format&fit=crop"
                 >
-                    Plan My Trip <ArrowRightIcon className="inline-block ml-2 h-6 w-6" />
-                </button>
-                
-                {hasResumableTrip && onResumeClick && (
+                    <source src="https://assets.mixkit.co/videos/preview/mixkit-top-aerial-shot-of-seashore-with-rocks-1090-large.mp4" type="video/mp4" />
+                    Your browser does not support the video tag.
+                </video>
+                {/* Overlay Gradient */}
+                <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-gray-900 dark:to-gray-950"></div>
+            </div>
+            
+            <div className="relative z-10 p-4 max-w-5xl mx-auto flex flex-col items-center mt-[-50px]">
+                <h1 
+                  className="animate-fade-in-up text-5xl md:text-7xl lg:text-8xl font-extrabold font-serif tracking-tight mb-6 leading-tight"
+                  style={{ textShadow: '0 4px 30px rgba(0,0,0,0.5)' }}
+                >
+                    Your World,<br/> Curated.
+                </h1>
+                <p 
+                  className="animate-fade-in-up delay-100 text-lg md:text-2xl max-w-2xl mx-auto mb-10 text-gray-100 leading-relaxed font-light"
+                  style={{ textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}
+                >
+                    Experience the future of travel planning. Smart itineraries, hidden gems, and seamless booking—all designed around you.
+                </p>
+                <div className="animate-fade-in-up delay-200 flex flex-col sm:flex-row gap-4 w-full justify-center">
                     <button
-                        onClick={onResumeClick}
-                        className="bg-white/10 backdrop-blur-md border border-white/30 text-white font-bold py-4 px-8 rounded-full text-lg shadow-xl hover:bg-white/20 hover:shadow-2xl hover:-translate-y-1 transform transition-all duration-300 ease-in-out active:scale-95 active:shadow-xl active:translate-y-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white focus-visible:ring-offset-black"
+                        onClick={onPlanTripClick}
+                        className="bg-cyan-600 text-white font-bold py-4 px-10 rounded-full text-lg shadow-2xl hover:bg-cyan-500 hover:scale-105 hover:shadow-cyan-500/30 transform transition-all duration-300 ease-out active:scale-95 flex items-center justify-center gap-2 group"
                     >
-                        Resume Last Trip <UndoIcon className="inline-block ml-2 h-6 w-6" />
+                        Start Your Journey <ArrowRightIcon className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
                     </button>
-                )}
+                    
+                    {hasResumableTrip && onResumeClick && (
+                        <button
+                            onClick={onResumeClick}
+                            className="bg-white/10 backdrop-blur-md border border-white/30 text-white font-bold py-4 px-10 rounded-full text-lg shadow-xl hover:bg-white/20 hover:scale-105 transform transition-all duration-300 ease-out active:scale-95 flex items-center justify-center gap-2"
+                        >
+                            Resume Planning <UndoIcon className="h-5 w-5" />
+                        </button>
+                    )}
+                </div>
+            </div>
+            
+            {/* Scroll Indicator */}
+            <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2 animate-bounce cursor-pointer opacity-80 hover:opacity-100 transition-opacity" onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}>
+                <div className="w-6 h-10 border-2 border-white/50 rounded-full flex justify-center pt-2">
+                    <div className="w-1 h-2 bg-white rounded-full animate-pulse"></div>
+                </div>
             </div>
         </div>
+
+        {/* Features Grid */}
+        <section id="features" className="py-24 px-4 bg-white dark:bg-gray-950 relative z-10 scroll-mt-20">
+            <div className="max-w-7xl mx-auto">
+                <RevealSection className="text-center mb-20">
+                    <h2 className="text-sm font-bold text-cyan-600 dark:text-cyan-400 uppercase tracking-widest mb-3">Smart Planning</h2>
+                    <h2 className="text-3xl md:text-5xl font-bold mb-6 text-gray-900 dark:text-white font-serif">Everything you need.</h2>
+                    <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto text-lg">We combine the power of advanced algorithms with travel expertise to deliver the most comprehensive planning experience.</p>
+                </RevealSection>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    <FeatureCard 
+                        icon={<SparklesIcon className="w-8 h-8 text-purple-500" />}
+                        title="Personalized AI"
+                        description="Itineraries adapted to your interests, travel style, and budget constraints automatically."
+                        delay={0}
+                    />
+                    <FeatureCard 
+                        icon={<MapIcon className="w-8 h-8 text-cyan-500" />}
+                        title="Interactive Maps"
+                        description="Visual interactive maps with optimized routes to save you travel time between attractions."
+                        delay={100}
+                    />
+                    <FeatureCard 
+                        icon={<PiggyBankIcon className="w-8 h-8 text-green-500" />}
+                        title="Smart Budgeting"
+                        description="Real-time cost estimation and breakdowns for flights, stays, food, and activities."
+                        delay={200}
+                    />
+                    <FeatureCard 
+                        icon={<CalendarIcon className="w-8 h-8 text-orange-500" />}
+                        title="Day-by-Day Plans"
+                        description="Detailed schedules including weather forecasts, packing tips, and local advisories."
+                        delay={300}
+                    />
+                </div>
+            </div>
+        </section>
+
+        {/* Travel Inspirations / Vibes */}
+        <section id="vibes" className="py-24 px-4 bg-gray-50 dark:bg-gray-900 scroll-mt-20">
+            <div className="max-w-7xl mx-auto">
+                <RevealSection className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+                    <div>
+                        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4 font-serif">Find Your Travel Vibe</h2>
+                        <p className="text-gray-600 dark:text-gray-400 max-w-xl">Whether you crave adrenaline, culture, or relaxation, GlobeTrekker builds the itinerary that fits your mood.</p>
+                    </div>
+                    <button onClick={onPlanTripClick} className="text-cyan-600 dark:text-cyan-400 font-bold hover:underline flex items-center gap-1 transition-transform hover:translate-x-1">
+                        Start a new plan <ArrowRightIcon className="h-4 w-4" />
+                    </button>
+                </RevealSection>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <VibeCard 
+                        title="Urban Exploration" 
+                        image="https://images.unsplash.com/photo-1449824913929-79f2f43dccba?q=80&w=800&auto=format&fit=crop"
+                        tag="Culture & Nightlife"
+                        delay={0}
+                    />
+                    <VibeCard 
+                        title="Nature Escapes" 
+                        image="https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=800&auto=format&fit=crop"
+                        tag="Hiking & Views"
+                        delay={100}
+                    />
+                    <VibeCard 
+                        title="Culinary Journeys" 
+                        image="https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=800&auto=format&fit=crop"
+                        tag="Food & Markets"
+                        delay={200}
+                    />
+                </div>
+            </div>
+        </section>
+
+        {/* How It Works */}
+        <section id="how-it-works" className="py-24 px-4 bg-white dark:bg-gray-950 relative overflow-hidden scroll-mt-20">
+             {/* Decorative background elements */}
+             <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-30 pointer-events-none">
+                <div className="absolute -top-24 -right-24 w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl animate-float"></div>
+                <div className="absolute top-1/2 -left-24 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '1s' }}></div>
+             </div>
+
+            <div className="max-w-7xl mx-auto relative z-10">
+                <RevealSection className="text-center mb-20">
+                    <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900 dark:text-white font-serif">Simple, yet powerful.</h2>
+                    <p className="text-gray-600 dark:text-gray-400">Plan your dream vacation in three simple steps.</p>
+                </RevealSection>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-12 relative">
+                    {/* Connecting Line (Desktop only) */}
+                    <div className="hidden md:block absolute top-12 left-1/6 right-1/6 h-0.5 bg-gradient-to-r from-cyan-200 via-purple-200 to-cyan-200 dark:from-gray-700 dark:via-gray-600 dark:to-gray-700 z-0"></div>
+
+                    <StepCard 
+                        number="1"
+                        title="Tell Us Your Preferences"
+                        description="Enter your destination, dates, budget, and interests. The more we know, the better the plan."
+                        delay={0}
+                    />
+                    <StepCard 
+                        number="2"
+                        title="We Generate Your Trip"
+                        description="Our engine analyzes thousands of options to create a perfect day-by-day itinerary instantly."
+                        delay={200}
+                    />
+                    <StepCard 
+                        number="3"
+                        title="Customize & Book"
+                        description="Review your plan, make adjustments with our AI assistant, and book everything in one place."
+                        delay={400}
+                    />
+                </div>
+            </div>
+        </section>
+
+        {/* FAQ Section */}
+        <section id="faq" className="py-24 px-4 bg-gray-50 dark:bg-gray-900 scroll-mt-20">
+            <div className="max-w-4xl mx-auto">
+                <RevealSection>
+                    <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-gray-900 dark:text-white font-serif">Frequently Asked Questions</h2>
+                </RevealSection>
+                <div className="grid gap-6">
+                    <FAQItem 
+                        question="Is GlobeTrekker free to use?" 
+                        answer="Yes! You can generate unlimited itineraries for free. We may offer premium features in the future for power users, but the core planning experience remains free." 
+                        delay={0}
+                    />
+                    <FAQItem 
+                        question="How accurate are the cost estimates?" 
+                        answer="Our estimates are based on real-time data averages for your destination. While actual prices may vary based on booking time and availability, they provide a solid baseline for budgeting." 
+                        delay={100}
+                    />
+                    <FAQItem 
+                        question="Can I edit the itinerary after it's generated?" 
+                        answer="Absolutely. GlobeTrekker gives you a solid starting point, but you have full control to drag-and-drop activities, remove items, or add your own custom plans." 
+                        delay={200}
+                    />
+                    <FAQItem 
+                        question="Do you handle bookings directly?" 
+                        answer="We provide direct links and integrated booking simulations for flights and hotels. For the best rates, we often direct you to trusted partners or official provider sites." 
+                        delay={300}
+                    />
+                </div>
+            </div>
+        </section>
+
+        {/* Testimonials */}
+        <section id="testimonials" className="py-24 px-4 bg-white dark:bg-gray-950 scroll-mt-20 border-t border-gray-100 dark:border-gray-800">
+            <div className="max-w-6xl mx-auto">
+                <RevealSection>
+                    <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-gray-900 dark:text-white font-serif">Loved by Travelers</h2>
+                </RevealSection>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <TestimonialCard 
+                        quote="GlobeTrekker saved me hours of planning. The restaurant recommendations were spot on!"
+                        author="Sarah J."
+                        location="Traveled to Japan"
+                        delay={0}
+                    />
+                    <TestimonialCard 
+                        quote="I loved how it stayed within my budget while still including all the must-see sights."
+                        author="Mike T."
+                        location="Traveled to Italy"
+                        delay={100}
+                    />
+                    <TestimonialCard 
+                        quote="The AI chat feature is a game changer. It felt like having a local guide in my pocket."
+                        author="Elena R."
+                        location="Traveled to Mexico"
+                        delay={200}
+                    />
+                </div>
+            </div>
+        </section>
+
+        {/* About Us Section */}
+        <section id="about" className="py-24 px-4 bg-gray-900 text-white relative overflow-hidden scroll-mt-20">
+            <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+            <div className="max-w-7xl mx-auto relative z-10">
+                <div className="flex flex-col md:flex-row items-center gap-16">
+                    <div className="md:w-1/2">
+                        <RevealSection>
+                            <h4 className="text-cyan-400 font-bold uppercase tracking-widest mb-2 text-sm">About Us</h4>
+                            <h2 className="text-3xl md:text-5xl font-bold mb-6 font-serif leading-tight">Travel Smarter,<br/>Not Harder.</h2>
+                            <p className="text-gray-300 text-lg leading-relaxed mb-6">
+                                GlobeTrekker was born from a simple idea: planning a trip should be as exciting as taking it. We believe that technology can remove the stress of logistics, leaving you free to focus on the experience.
+                            </p>
+                            <div className="grid grid-cols-2 gap-6">
+                                <div>
+                                    <h3 className="text-4xl font-bold text-cyan-400 mb-1">50k+</h3>
+                                    <p className="text-gray-400 text-sm">Trips Planned</p>
+                                </div>
+                                <div>
+                                    <h3 className="text-4xl font-bold text-cyan-400 mb-1">120+</h3>
+                                    <p className="text-gray-400 text-sm">Countries Covered</p>
+                                </div>
+                            </div>
+                        </RevealSection>
+                    </div>
+                    <div className="md:w-1/2">
+                        <RevealSection delay={200} className="relative">
+                            <div className="grid grid-cols-2 gap-4">
+                                <LazyImage src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=800&auto=format&fit=crop" alt="Team working" className="rounded-2xl shadow-2xl translate-y-8" />
+                                <LazyImage src="https://images.unsplash.com/photo-1530789253388-582c481c54b0?q=80&w=800&auto=format&fit=crop" alt="Travel planning" className="rounded-2xl shadow-2xl" />
+                            </div>
+                        </RevealSection>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        {/* Contact Section */}
+        <section id="contact" className="py-24 px-4 bg-gray-50 dark:bg-gray-900 scroll-mt-20">
+            <div className="max-w-5xl mx-auto">
+                <RevealSection className="text-center mb-16">
+                    <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white font-serif mb-4">Get in Touch</h2>
+                    <p className="text-gray-600 dark:text-gray-400">Have questions or feedback? We'd love to hear from you.</p>
+                </RevealSection>
+                
+                <RevealSection delay={100}>
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row">
+                        <div className="md:w-1/2 p-8 md:p-12 bg-cyan-600 text-white flex flex-col justify-between">
+                            <div>
+                                <h3 className="text-2xl font-bold mb-6 font-serif">Contact Information</h3>
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                                            <SendIcon className="h-5 w-5" />
+                                        </div>
+                                        <p>hello@globetrekker.ai</p>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                                            <MapPinIcon className="h-5 w-5" />
+                                        </div>
+                                        <p>123 Innovation Dr, Tech City, TC 90210</p>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                                            <GlobeIcon className="h-5 w-5" />
+                                        </div>
+                                        <p>www.globetrekker.ai</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="mt-12">
+                                <p className="opacity-80 text-sm">Follow us on social media for daily travel inspiration.</p>
+                                <div className="flex gap-4 mt-4">
+                                    {['Tw', 'Fb', 'In', 'Li'].map(s => (
+                                        <div key={s} className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/40 cursor-pointer flex items-center justify-center font-bold text-xs transition-colors">
+                                            {s}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="md:w-1/2 p-8 md:p-12">
+                            <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Name</label>
+                                    <input type="text" className="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-cyan-500 outline-none transition-all" placeholder="Your name" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Email</label>
+                                    <input type="email" className="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-cyan-500 outline-none transition-all" placeholder="your@email.com" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Message</label>
+                                    <textarea className="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-cyan-500 outline-none transition-all h-32 resize-none" placeholder="How can we help?"></textarea>
+                                </div>
+                                <button className="w-full bg-gray-900 dark:bg-white text-white dark:text-black font-bold py-3 rounded-lg hover:opacity-90 transition-opacity shadow-md">
+                                    Send Message
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </RevealSection>
+            </div>
+        </section>
+
+        {/* Final CTA */}
+        <section className="py-32 px-4 text-center bg-white dark:bg-gray-950 border-t border-gray-100 dark:border-gray-800">
+            <RevealSection className="max-w-3xl mx-auto">
+                <h2 className="text-4xl md:text-5xl font-bold mb-6 text-gray-900 dark:text-white font-serif">Ready for your next adventure?</h2>
+                <p className="text-xl text-gray-600 dark:text-gray-400 mb-10">Join thousands of travelers exploring the world smarter.</p>
+                <button
+                    onClick={onPlanTripClick}
+                    className="bg-cyan-600 text-white font-bold py-5 px-12 rounded-full text-xl shadow-xl hover:bg-cyan-500 hover:shadow-2xl hover:-translate-y-1 transform transition-all duration-300 ease-in-out active:scale-95"
+                >
+                    Plan My Trip Free
+                </button>
+                <div className="mt-6 flex items-center justify-center gap-6 text-sm text-gray-500 dark:text-gray-500">
+                    <span className="flex items-center gap-1"><CheckCircleIcon className="h-4 w-4 text-green-500"/> No credit card required</span>
+                    <span className="flex items-center gap-1"><CheckCircleIcon className="h-4 w-4 text-green-500"/> Instant access</span>
+                </div>
+            </RevealSection>
+        </section>
+        
+        {/* Footer */}
+        <footer className="bg-gray-50 dark:bg-gray-900 py-12 border-t border-gray-200 dark:border-gray-800">
+            <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
+                <div className="flex items-center gap-2">
+                    <GlobeIcon className="h-6 w-6 text-cyan-600" />
+                    <span className="text-xl font-bold text-gray-800 dark:text-gray-200 font-serif">GlobeTrekker</span>
+                </div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                    © {new Date().getFullYear()} GlobeTrekker. All rights reserved.
+                </div>
+                <div className="flex gap-6 text-gray-600 dark:text-gray-400">
+                    <a href="#" className="hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors">Privacy</a>
+                    <a href="#" className="hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors">Terms</a>
+                    <a href="#" className="hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors">Contact</a>
+                </div>
+            </div>
+        </footer>
     </div>
   );
 };
+
+const FeatureCard = ({ icon, title, description, delay }: { icon: React.ReactNode, title: string, description: string, delay: number }) => (
+    <RevealSection delay={delay}>
+        <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border border-gray-100 dark:border-gray-700 group h-full">
+            <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-2xl inline-block group-hover:scale-110 transition-transform duration-300">{icon}</div>
+            <h3 className="text-xl font-bold mb-3 text-gray-900 dark:text-white font-serif">{title}</h3>
+            <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{description}</p>
+        </div>
+    </RevealSection>
+);
+
+const VibeCard = ({ title, image, tag, delay }: { title: string, image: string, tag: string, delay: number }) => (
+    <RevealSection delay={delay}>
+        <div className="relative group overflow-hidden rounded-2xl h-80 shadow-lg cursor-pointer">
+            <LazyImage src={image} alt={title} className="w-full h-full group-hover:scale-110 group-hover:rotate-1 transition-transform duration-700 ease-in-out" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity"></div>
+            <div className="absolute bottom-0 left-0 p-6 text-white translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+                <span className="text-xs font-bold uppercase tracking-wider bg-cyan-600 px-2 py-1 rounded mb-2 inline-block shadow-sm">{tag}</span>
+                <h3 className="text-2xl font-bold font-serif group-hover:text-cyan-200 transition-colors">{title}</h3>
+            </div>
+        </div>
+    </RevealSection>
+);
+
+const StepCard = ({ number, title, description, delay }: { number: string, title: string, description: string, delay: number }) => (
+    <RevealSection delay={delay} className="relative z-10 flex flex-col items-center text-center group">
+        <div className="w-16 h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-lg mb-6 group-hover:scale-110 group-hover:rotate-12 transition-transform duration-300 ring-4 ring-white dark:ring-gray-900 font-serif">
+            {number}
+        </div>
+        <h3 className="text-xl font-bold mb-3 text-gray-900 dark:text-white font-serif">{title}</h3>
+        <p className="text-gray-600 dark:text-gray-400 max-w-xs mx-auto">{description}</p>
+    </RevealSection>
+);
+
+const FAQItem = ({ question, answer, delay }: { question: string, answer: string, delay: number }) => (
+    <RevealSection delay={delay}>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all hover:border-cyan-500 dark:hover:border-cyan-500 group">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 font-serif group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">{question}</h3>
+            <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{answer}</p>
+        </div>
+    </RevealSection>
+);
+
+const TestimonialCard = ({ quote, author, location, delay }: { quote: string, author: string, location: string, delay: number }) => (
+    <RevealSection delay={delay}>
+        <div className="bg-gray-50 dark:bg-gray-900 p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 relative hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+            <div className="text-cyan-200 dark:text-gray-700 absolute top-6 left-6 text-6xl font-serif opacity-30">"</div>
+            <p className="text-gray-700 dark:text-gray-300 text-lg mb-6 relative z-10 italic leading-relaxed font-serif">{quote}</p>
+            <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-cyan-100 dark:bg-cyan-900 rounded-full flex items-center justify-center">
+                    <UserIcon className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                </div>
+                <div>
+                    <div className="font-bold text-gray-900 dark:text-white">{author}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{location}</div>
+                </div>
+            </div>
+        </div>
+    </RevealSection>
+);
 
 export default HeroSection;

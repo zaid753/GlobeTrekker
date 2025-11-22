@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserIcon, LockIcon, ArrowRightIcon, GoogleIcon, CheckCircleIcon, CloseIcon, ArrowLeftIcon } from './icons';
 import { signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword } from '../services/firebase';
 
@@ -19,6 +19,18 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialView = 'l
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   
+  // Sync state when prop changes or modal re-opens
+  useEffect(() => {
+    if (isOpen) {
+        setIsLoginView(initialView !== 'signup');
+        setErrors({});
+        setResetSent(false);
+        setEmail('');
+        setPassword('');
+        setConfirmPassword('');
+    }
+  }, [isOpen, initialView]);
+
   if (!isOpen) return null;
 
   const validate = () => {

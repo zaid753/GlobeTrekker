@@ -633,11 +633,11 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
         return (
             <div className="space-y-6">
                 <div>
-                    <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">Trip Overview</h3>
+                    <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2 font-serif">Trip Overview</h3>
                     <p className="text-gray-600 dark:text-gray-300 leading-relaxed">{itinerary.trip_summary.description}</p>
                 </div>
                 <div>
-                    <h4 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-3">Key Highlights</h4>
+                    <h4 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-3 font-serif">Key Highlights</h4>
                     <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-gray-600 dark:text-gray-300">
                         {itinerary.trip_summary.highlights.map((h, i) => (
                             <li key={i} className="flex items-start gap-2">
@@ -701,7 +701,7 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                     <div className="relative h-48 md:h-64 rounded-2xl overflow-hidden mb-8 shadow-lg group">
                         <ImageWithFallback 
                             src={dayPlan.imageUrl}
-                            secondarySrc={getDummyImageUrl(details.destination, dayPlan.title, dayPlan.day)}
+                            secondarySrc={getDummyImageUrl(details.destination, dayPlan.title, dayPlan.day, 'banner')}
                             alt={dayPlan.title} 
                             fallback={getFallbackUI('activity')}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
@@ -709,7 +709,7 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
                         <div className="absolute bottom-0 left-0 p-6 text-white">
                             <span className="bg-cyan-600 text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wide mb-2 inline-block">Day {dayPlan.day}</span>
-                            <h3 className="text-3xl font-bold">{dayPlan.title}</h3>
+                            <h3 className="text-3xl font-bold font-serif">{dayPlan.title}</h3>
                             <p className="text-gray-200 mt-1 opacity-90">{dayPlan.ai_tip}</p>
                         </div>
                     </div>
@@ -857,7 +857,7 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                 {(['budget', 'standard', 'luxury'] as const).map(tier => (
                     <div key={tier}>
                         <div className="flex items-center gap-3 mb-6">
-                            <h4 className="text-xl font-bold capitalize dark:text-white">{tier} Collection</h4>
+                            <h4 className="text-xl font-bold capitalize dark:text-white font-serif">{tier} Collection</h4>
                             <div className="flex-grow h-px bg-gray-200 dark:bg-gray-700"></div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -866,7 +866,7 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                                     <div className="h-52 relative overflow-hidden bg-gray-200 dark:bg-gray-700">
                                         <ImageWithFallback 
                                             src={hotel.imageUrl}
-                                            secondarySrc={getDummyImageUrl(details.destination, hotel.name + i, 'hotel')}
+                                            secondarySrc={getDummyImageUrl(details.destination, hotel.name + i, i, 'hotel')}
                                             alt={hotel.name} 
                                             fallback={getFallbackUI('accommodation')} 
                                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
@@ -929,7 +929,7 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
             <div className="space-y-8">
                 {hasLongDistance && (
                     <div>
-                        <h4 className="text-xl font-bold mb-4 dark:text-white flex items-center gap-2"><PlaneIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-400"/> Long Distance Travel</h4>
+                        <h4 className="text-xl font-bold mb-4 dark:text-white flex items-center gap-2 font-serif"><PlaneIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-400"/> Long Distance Travel</h4>
                         <div className="grid gap-6">
                         {long_distance_options.map((opt, idx) => (
                             <div key={idx} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row gap-6 hover:shadow-md transition-shadow">
@@ -992,7 +992,7 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                 
                 {hasLocal && (
                     <div>
-                        <h4 className="text-xl font-bold mb-4 dark:text-white flex items-center gap-2"><CarIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-400"/> Local Commute</h4>
+                        <h4 className="text-xl font-bold mb-4 dark:text-white flex items-center gap-2 font-serif"><CarIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-400"/> Local Commute</h4>
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {local_suggestions.map((loc, idx) => (
                                 <div key={idx} className="bg-white dark:bg-gray-800 p-5 rounded-xl border dark:border-gray-700 shadow-sm hover:shadow-md hover:border-cyan-500 dark:hover:border-cyan-400 transition-all group">
@@ -1031,7 +1031,7 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                             <div className="h-56 relative bg-gray-200 dark:bg-gray-700 overflow-hidden">
                                     <ImageWithFallback 
                                         src={rest.imageUrl}
-                                        secondarySrc={getDummyImageUrl(details.destination, rest.name + idx, 'food')}
+                                        secondarySrc={getDummyImageUrl(details.destination, rest.name + idx, idx, 'food')}
                                         alt={rest.name} 
                                         fallback={getFallbackUI('food')}
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
@@ -1111,13 +1111,13 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                         <CloudSunIcon className="h-12 w-12" />
                     </div>
                     <div className="text-center md:text-left">
-                        <h4 className="text-2xl font-bold mb-2">Weekly Forecast</h4>
+                        <h4 className="text-2xl font-bold mb-2 font-serif">Weekly Forecast</h4>
                         <p className="text-blue-50 leading-relaxed max-w-2xl">{itinerary.weather_forecast.weekly_summary}</p>
                     </div>
                 </div>
                 
                 <div>
-                    <h4 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-4">Daily Breakdown</h4>
+                    <h4 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-4 font-serif">Daily Breakdown</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         {itinerary.weather_forecast.daily_forecasts.map(day => (
                             <div key={day.day} className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 hover:shadow-lg transition-all duration-300 flex flex-col h-full relative overflow-hidden group">
@@ -1267,7 +1267,7 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
 
                     {/* Breakdown List */}
                     <div className="space-y-6">
-                        <h4 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4 border-b dark:border-gray-700 pb-2">Expense Breakdown</h4>
+                        <h4 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4 border-b dark:border-gray-700 pb-2 font-serif">Expense Breakdown</h4>
                         <div className="space-y-4">
                             {budgetItems.map((item) => (
                                 <div key={item.label}>
@@ -1328,7 +1328,7 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                             value={editTitleValue} 
                             onChange={e => setEditTitleValue(e.target.value)} 
                             onKeyDown={handleKeyDown}
-                            className="text-3xl font-extrabold bg-white dark:bg-gray-700 border-2 border-cyan-500 rounded-lg px-3 py-1 focus:outline-none dark:text-white w-full shadow-sm"
+                            className="text-3xl font-extrabold bg-white dark:bg-gray-700 border-2 border-cyan-500 rounded-lg px-3 py-1 focus:outline-none dark:text-white w-full shadow-sm font-serif"
                         />
                          <button onClick={handleTitleSave} className="bg-green-100 hover:bg-green-200 dark:bg-green-900/50 dark:hover:bg-green-900 text-green-700 dark:text-green-300 p-2 rounded-full transition-colors" title="Save Title">
                             <CheckCircleIcon className="h-6 w-6" />
@@ -1338,7 +1338,7 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                         </button>
                     </div>
                 ) : (
-                    <h2 className="text-3xl font-extrabold dark:text-white flex gap-2 items-center group cursor-pointer" onClick={startEditing} title="Click to edit trip title">
+                    <h2 className="text-3xl font-extrabold dark:text-white flex gap-2 items-center group cursor-pointer font-serif" onClick={startEditing} title="Click to edit trip title">
                         {itinerary.trip_title} 
                         <div className="bg-gray-100 dark:bg-gray-700 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity transform hover:scale-110">
                             <EditIcon className="h-4 w-4 text-gray-500 dark:text-gray-300"/>

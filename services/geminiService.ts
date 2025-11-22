@@ -42,13 +42,31 @@ const retryWithBackoff = async <T>(fn: () => Promise<T>, retries = 3, delay = 10
     }
 };
 
-export const getDummyImageUrl = (destination: string, keywords: string, seedExtra: number | string) => {
-    const dest = destination || 'destination';
-    const key = keywords || 'travel';
-    const extra = seedExtra || '1';
-    // Deterministic seed logic
-    const seed = `${dest.slice(0, 5)}${key.slice(0, 5)}${extra}`.replace(/[^a-zA-Z0-9]/g, '');
-    return `https://picsum.photos/seed/${seed}/800/600`;
+export const getDummyImageUrl = (destination: string, keywords: string, seedExtra: number | string, type: 'banner' | 'hotel' | 'food' | 'activity' = 'banner') => {
+    // Enhanced prompt for Pollinations.ai for better accuracy and relevance
+    let contextTerms = "";
+    switch (type) {
+        case 'hotel':
+            contextTerms = "luxury hotel exterior, modern architecture, resort, swimming pool, golden hour";
+            break;
+        case 'food':
+            contextTerms = "gourmet food photography, delicious dish, fine dining, macro shot, restaurant atmosphere";
+            break;
+        case 'activity':
+            contextTerms = "tourist attraction, scenic view, travel photography, vibrant colors, adventure";
+            break;
+        case 'banner':
+        default:
+            contextTerms = "cinematic travel photography, wide angle, iconic landmark, award winning, 8k, breathtaking view";
+            break;
+    }
+
+    const prompt = encodeURIComponent(`${keywords} in ${destination}, ${contextTerms}`);
+    // Dimensions optimization
+    const width = type === 'banner' ? 1200 : 800;
+    const height = type === 'banner' ? 600 : 600;
+    
+    return `https://image.pollinations.ai/prompt/${prompt}?width=${width}&height=${height}&nologo=true&seed=${seedExtra}&model=flux`;
 };
 
 // Reusable sub-schemas
