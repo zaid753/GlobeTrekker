@@ -159,7 +159,7 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
   };
 
   const today = new Date().toISOString().split('T')[0];
-  const inputStyles = "form-input w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none transition-all bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/50 dark:focus:ring-cyan-400/50 dark:focus:border-cyan-400";
+  const inputStyles = "form-input w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none transition-all bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/50 dark:focus:ring-cyan-400/50 dark:focus:border-cyan-400 text-base";
 
   const travelStyleDetails = {
       Economy: { icon: PiggyBankIcon, description: "Budget-friendly stays and transport." },
@@ -241,7 +241,7 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 p-4 pt-28 transition-colors duration-300">
-      <div className="w-full max-w-3xl bg-white dark:bg-gray-800 rounded-xl shadow-2xl dark:border dark:border-gray-700 p-8 space-y-8 relative">
+      <div className="w-full max-w-3xl bg-white dark:bg-gray-800 rounded-xl shadow-2xl dark:border dark:border-gray-700 p-5 md:p-8 space-y-8 relative">
         {canGoBack && (
             <button 
                 onClick={onBack}
@@ -252,12 +252,12 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
             </button>
         )}
         <div>
-          <h2 className="text-4xl font-bold text-center text-gray-800 dark:text-gray-100">Design Your Dream Trip</h2>
-          <p className="text-center text-gray-500 dark:text-gray-400 mt-2">Let our AI craft the perfect itinerary for you.</p>
+          <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-800 dark:text-gray-100">Design Your Dream Trip</h2>
+          <p className="text-center text-gray-500 dark:text-gray-400 mt-2 text-sm md:text-base">Let our AI craft the perfect itinerary for you.</p>
         </div>
 
         <div className="border-b border-gray-200 dark:border-gray-700 pb-5">
-            <nav className="-mb-px flex justify-center space-x-6" aria-label="Steps">
+            <nav className="-mb-px flex justify-center space-x-6 md:space-x-12" aria-label="Steps">
                 {steps.map((step) => {
                     const isCompleted = currentStep > step.id;
                     const isCurrent = currentStep === step.id;
@@ -268,7 +268,7 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
                             }`}>
                                 {isCompleted ? <CheckCircleIcon className="w-6 h-6" /> : <step.icon className={`w-5 h-5 ${isCurrent ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-400 dark:text-gray-500'}`} />}
                             </div>
-                            <p className={`text-sm font-medium ${isCurrent || isCompleted ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-500 dark:text-gray-400'}`}>{step.name}</p>
+                            <p className={`text-xs md:text-sm font-medium ${isCurrent || isCompleted ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-500 dark:text-gray-400'}`}>{step.name}</p>
                         </div>
                     );
                 })}
@@ -277,9 +277,9 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
 
         <form onSubmit={handleSubmit} className="space-y-8">
           <div style={{ display: currentStep === 1 ? 'block' : 'none' }}>
-            <div className="p-4 space-y-6 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+            <div className="p-4 md:p-6 space-y-6 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
+                    <div className="col-span-1">
                         <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 ml-1 uppercase">Departure City</label>
                         <div className="relative">
                             <PlaneDepartIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
@@ -309,7 +309,7 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
                         {errors.departureCity && <p className="text-red-500 text-xs mt-1 ml-2">{errors.departureCity}</p>}
                     </div>
                     
-                    <div>
+                    <div className="col-span-1">
                          <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 ml-1 uppercase">Destinations</label>
                          <div className="relative">
                             <GlobeIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
@@ -356,7 +356,7 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
                         {errors.destination && <p className="text-red-500 text-xs mt-1 ml-2">{errors.destination}</p>}
                     </div>
 
-                    <div className="relative">
+                    <div className="col-span-1">
                         <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 ml-1 uppercase">Start Date</label>
                         <div className="relative">
                             <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
@@ -371,7 +371,7 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
                          {errors.startDate && <p className="text-red-500 text-xs mt-1 ml-2">{errors.startDate}</p>}
                     </div>
 
-                    <div className="relative">
+                    <div className="col-span-1">
                         <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 ml-1 uppercase">End Date</label>
                         <div className="relative">
                              <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
@@ -398,7 +398,7 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
           </div>
           
           <div style={{ display: currentStep === 2 ? 'block' : 'none' }}>
-            <div className="p-4 space-y-6 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+            <div className="p-4 md:p-6 space-y-6 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
                 <div className="relative">
                     <UsersIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <input type="number" placeholder="Number of Travelers" value={travellers} min="1" onChange={(e) => setTravellers(parseInt(e.target.value))} className={inputStyles} />
@@ -424,7 +424,7 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
           </div>
 
           <div style={{ display: currentStep === 3 ? 'block' : 'none' }}>
-            <div className="p-4 space-y-6 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+            <div className="p-4 md:p-6 space-y-6 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
                  <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">₹</span>
                     <input 

@@ -573,6 +573,27 @@ function App() {
       navigateTo('form');
   };
 
+  const handleSearch = (query: string) => {
+      guardWithAuth(() => {
+          setIsCreatingNewTrip(true);
+          setEditingTripIndex(null);
+          setCurrentTripId(null);
+          // Pre-fill the destination in the trip form by updating tripDetails
+          // Since we navigate to 'form', the form will pick up initialDetails
+          setTripDetails({
+              destination: query,
+              departureCity: userPreferences.defaultDepartureCity || '',
+              startDate: '',
+              endDate: '',
+              travellers: 1,
+              travelStyle: userPreferences.defaultTravelStyle || 'Standard',
+              interests: userPreferences.defaultInterests || [],
+              duration: 0
+          });
+          navigateTo('form');
+      });
+  };
+
   const handleTryGate = (action: () => void) => {
       guardWithAuth(action);
   }
@@ -606,6 +627,7 @@ function App() {
         onProfileClick={() => navigateTo('profile')}
         onNavigate={handleNavbarNavigation}
         currentView={view}
+        onSearch={handleSearch}
       />
 
       {view === 'hero' && (
@@ -648,7 +670,8 @@ function App() {
           onSubmit={handleFormSubmit} 
           isLoading={isLoading} 
           // Only pass initial details if we are NOT creating a new trip from scratch
-          initialDetails={isCreatingNewTrip ? null : tripDetails}
+          // OR if we just initiated a search which set tripDetails
+          initialDetails={isCreatingNewTrip ? tripDetails : tripDetails}
           onBack={() => handleBack()}
           canGoBack={viewHistory.length > 1}
           userPreferences={userPreferences}

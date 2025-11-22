@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRightIcon, UndoIcon, SparklesIcon, MapIcon, PiggyBankIcon, CalendarIcon, GlobeIcon, UserIcon, CheckCircleIcon, SendIcon, MapPinIcon } from './icons';
+import { ArrowRightIcon, UndoIcon, SparklesIcon, MapIcon, PiggyBankIcon, CalendarIcon, GlobeIcon, UserIcon, CheckCircleIcon, SendIcon, MapPinIcon, SpinnerIcon } from './icons';
 
 interface HeroSectionProps {
     onPlanTripClick: () => void;
@@ -62,17 +62,29 @@ const RevealSection = ({ children, className = "", delay = 0 }: { children?: Rea
 const LazyImage = ({ src, alt, className }: { src: string, alt: string, className?: string }) => {
     const [loaded, setLoaded] = useState(false);
     const [error, setError] = useState(false);
+    const [currentSrc, setCurrentSrc] = useState(src);
+
+    const handleError = () => {
+        if (currentSrc === src) {
+            // Fallback to AI generated image if primary source fails
+            const fallbackUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(alt + ' travel scenery high quality')}?width=800&height=600&nologo=true&model=flux`;
+            setCurrentSrc(fallbackUrl);
+        } else {
+            // If fallback also fails, show error state
+            setError(true);
+        }
+    };
 
     return (
         <div className={`relative overflow-hidden bg-gray-200 dark:bg-gray-800 ${className}`}>
             {!error ? (
                 <>
                     <img 
-                        src={src} 
+                        src={currentSrc} 
                         alt={alt} 
                         loading="lazy"
                         onLoad={() => setLoaded(true)}
-                        onError={() => setError(true)}
+                        onError={handleError}
                         className={`w-full h-full object-cover transition-all duration-1000 ease-out ${loaded ? 'opacity-100 scale-100 blur-0' : 'opacity-0 scale-110 blur-md'}`} 
                     />
                     {!loaded && (
@@ -92,21 +104,38 @@ const LazyImage = ({ src, alt, className }: { src: string, alt: string, classNam
 
 const HeroSection: React.FC<HeroSectionProps> = ({ onPlanTripClick, onResumeClick, hasResumableTrip }) => {
   const parallaxOffset = useParallax(0.4);
+  const [formState, setFormState] = useState({ name: '', email: '', message: '' });
+  const [formStatus, setFormStatus] = useState<'idle' | 'submitting' | 'success'>('idle');
+
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setFormState({ ...formState, [e.target.name]: e.target.value });
+  };
+
+  const handleContactSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      setFormStatus('submitting');
+      // Simulate network request
+      setTimeout(() => {
+          setFormStatus('success');
+          setFormState({ name: '', email: '', message: '' });
+          setTimeout(() => setFormStatus('idle'), 3000);
+      }, 1500);
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-white font-sans overflow-x-hidden" id="hero-top">
         <style>{`
             @keyframes fadeInUp {
-                from { opacity: 0; transform: translateY(30px); }
+                from { opacity: 0; transform: translateY(40px); }
                 to { opacity: 1; transform: translateY(0); }
             }
             .animate-fade-in-up {
-                animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+                animation: fadeInUp 1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
                 opacity: 0;
             }
-            .delay-100 { animation-delay: 0.1s; }
-            .delay-200 { animation-delay: 0.2s; }
-            .delay-300 { animation-delay: 0.3s; }
+            .delay-100 { animation-delay: 0.2s; }
+            .delay-200 { animation-delay: 0.4s; }
+            .delay-300 { animation-delay: 0.6s; }
         `}</style>
 
         {/* Hero Section with Parallax Video */}
@@ -223,19 +252,19 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onPlanTripClick, onResumeClic
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <VibeCard 
                         title="Urban Exploration" 
-                        image="https://images.unsplash.com/photo-1449824913929-79f2f43dccba?q=80&w=800&auto=format&fit=crop"
+                        image="https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?q=80&w=800&auto=format&fit=crop"
                         tag="Culture & Nightlife"
                         delay={0}
                     />
                     <VibeCard 
                         title="Nature Escapes" 
-                        image="https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=800&auto=format&fit=crop"
+                        image="https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=800&auto=format&fit=crop"
                         tag="Hiking & Views"
                         delay={100}
                     />
                     <VibeCard 
                         title="Culinary Journeys" 
-                        image="https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=800&auto=format&fit=crop"
+                        image="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=800&auto=format&fit=crop"
                         tag="Food & Markets"
                         delay={200}
                     />
@@ -394,19 +423,19 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onPlanTripClick, onResumeClic
                                 <h3 className="text-2xl font-bold mb-6 font-serif">Contact Information</h3>
                                 <div className="space-y-6">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                                        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
                                             <SendIcon className="h-5 w-5" />
                                         </div>
                                         <p>hello@globetrekker.ai</p>
                                     </div>
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                                        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
                                             <MapPinIcon className="h-5 w-5" />
                                         </div>
                                         <p>123 Innovation Dr, Tech City, TC 90210</p>
                                     </div>
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                                        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
                                             <GlobeIcon className="h-5 w-5" />
                                         </div>
                                         <p>www.globetrekker.ai</p>
@@ -425,24 +454,61 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onPlanTripClick, onResumeClic
                             </div>
                         </div>
                         
-                        <div className="md:w-1/2 p-8 md:p-12">
-                            <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Name</label>
-                                    <input type="text" className="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-cyan-500 outline-none transition-all" placeholder="Your name" />
+                        <div className="md:w-1/2 p-6 md:p-12">
+                            {formStatus === 'success' ? (
+                                <div className="h-full flex flex-col items-center justify-center text-center animate-fade-in p-4">
+                                    <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
+                                        <CheckCircleIcon className="h-10 w-10 text-green-600 dark:text-green-400" />
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">Message Sent!</h3>
+                                    <p className="text-gray-600 dark:text-gray-300">Thank you for reaching out. We'll get back to you shortly.</p>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Email</label>
-                                    <input type="email" className="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-cyan-500 outline-none transition-all" placeholder="your@email.com" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Message</label>
-                                    <textarea className="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-cyan-500 outline-none transition-all h-32 resize-none" placeholder="How can we help?"></textarea>
-                                </div>
-                                <button className="w-full bg-gray-900 dark:bg-white text-white dark:text-black font-bold py-3 rounded-lg hover:opacity-90 transition-opacity shadow-md">
-                                    Send Message
-                                </button>
-                            </form>
+                            ) : (
+                                <form className="space-y-6" onSubmit={handleContactSubmit}>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Name</label>
+                                        <input 
+                                            type="text" 
+                                            name="name"
+                                            required
+                                            value={formState.name}
+                                            onChange={handleFormChange}
+                                            className="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-cyan-500 outline-none transition-all" 
+                                            placeholder="Your name" 
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Email</label>
+                                        <input 
+                                            type="email" 
+                                            name="email"
+                                            required
+                                            value={formState.email}
+                                            onChange={handleFormChange}
+                                            className="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-cyan-500 outline-none transition-all" 
+                                            placeholder="your@email.com" 
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Message</label>
+                                        <textarea 
+                                            name="message"
+                                            required
+                                            value={formState.message}
+                                            onChange={handleFormChange}
+                                            className="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-cyan-500 outline-none transition-all h-32 resize-none" 
+                                            placeholder="How can we help?"
+                                        ></textarea>
+                                    </div>
+                                    <button 
+                                        type="submit" 
+                                        disabled={formStatus === 'submitting'}
+                                        className="w-full bg-gray-900 dark:bg-white text-white dark:text-black font-bold py-3 rounded-lg hover:opacity-90 transition-all shadow-md active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                                    >
+                                        {formStatus === 'submitting' ? <SpinnerIcon className="animate-spin h-5 w-5"/> : 'Send Message'}
+                                    </button>
+                                </form>
+                            )}
                         </div>
                     </div>
                 </RevealSection>
@@ -458,7 +524,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onPlanTripClick, onResumeClic
                     onClick={onPlanTripClick}
                     className="bg-cyan-600 text-white font-bold py-5 px-12 rounded-full text-xl shadow-xl hover:bg-cyan-500 hover:shadow-2xl hover:-translate-y-1 transform transition-all duration-300 ease-in-out active:scale-95"
                 >
-                    Plan My Trip Free
+                    Plan My Trip
                 </button>
                 <div className="mt-6 flex items-center justify-center gap-6 text-sm text-gray-500 dark:text-gray-500">
                     <span className="flex items-center gap-1"><CheckCircleIcon className="h-4 w-4 text-green-500"/> No credit card required</span>

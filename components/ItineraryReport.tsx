@@ -89,6 +89,98 @@ const ImageWithFallback: React.FC<{src?: string | null; secondarySrc?: string | 
     );
 };
 
+// Interactive Donut Chart Component
+const InteractiveDonutChart = ({ data, total, formatCurrency }: { data: any[], total: number, formatCurrency: (n: number) => string }) => {
+    const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+    // Filter out zero values to prevent rendering issues
+    const activeData = data.filter(item => item.value > 0);
+
+    if (total === 0 || activeData.length === 0) {
+        return (
+            <div className="w-72 h-72 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center border-2 border-dashed border-gray-200 dark:border-gray-700">
+                <span className="text-gray-400 font-medium">No expenses recorded</span>
+            </div>
+        );
+    }
+
+    let cumulativePercent = 0;
+    
+    const slices = activeData.map((item) => {
+        const value = item.value;
+        const percent = value / total;
+        
+        const startPercent = cumulativePercent;
+        const endPercent = cumulativePercent + percent;
+        cumulativePercent += percent;
+
+        const startX = Math.cos(2 * Math.PI * startPercent);
+        const startY = Math.sin(2 * Math.PI * startPercent);
+        const endX = Math.cos(2 * Math.PI * endPercent);
+        const endY = Math.sin(2 * Math.PI * endPercent);
+
+        const largeArcFlag = percent > 0.5 ? 1 : 0;
+        
+        // Standard Pie Slice Path
+        // Handle 100% case
+        const pathData = percent >= 0.9999 
+            ? `M 1 0 A 1 1 0 1 1 -1 0 A 1 1 0 1 1 1 0 Z`
+            : `M 0 0 L ${startX} ${startY} A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY} Z`;
+
+        return { ...item, pathData, percent };
+    });
+
+    const activeItem = hoveredIndex !== null ? activeData[hoveredIndex] : null;
+
+    return (
+        <div className="relative flex flex-col items-center justify-center w-80 h-80 group select-none">
+            {/* Tooltip for specific value - Follows mouse roughly or fixed at top */}
+            <div className={`absolute -top-12 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs rounded py-1.5 px-3 transition-all duration-200 pointer-events-none z-20 shadow-lg ${activeItem ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>
+                {activeItem ? `${activeItem.display}: ${formatCurrency(activeItem.value)}` : ''}
+                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-gray-900"></div>
+            </div>
+
+            <svg viewBox="-1.1 -1.1 2.2 2.2" className="w-full h-full transform -rotate-90 overflow-visible">
+                {slices.map((slice, index) => (
+                    <path
+                        key={slice.label || index}
+                        d={slice.pathData}
+                        fill={slice.color}
+                        stroke="var(--color-bg-primary, #ffffff)" 
+                        strokeWidth="0.02"
+                        className="transition-all duration-300 ease-out cursor-pointer dark:stroke-gray-800 stroke-white"
+                        style={{
+                            transform: hoveredIndex === index ? 'scale(1.1)' : 'scale(1)',
+                            transformOrigin: '0 0',
+                            opacity: hoveredIndex !== null && hoveredIndex !== index ? 0.4 : 1,
+                            filter: hoveredIndex === index ? 'drop-shadow(0px 4px 8px rgba(0,0,0,0.2))' : 'none',
+                            zIndex: hoveredIndex === index ? 10 : 1
+                        }}
+                        onMouseEnter={() => setHoveredIndex(index)}
+                        onMouseLeave={() => setHoveredIndex(null)}
+                    />
+                ))}
+                {/* Inner Circle for Donut Effect */}
+                <circle cx="0" cy="0" r="0.65" className="fill-white dark:fill-gray-800 shadow-[inset_0_0_20px_rgba(0,0,0,0.05)]" />
+            </svg>
+            
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-bold mb-1">
+                    {activeItem ? activeItem.display : 'Total Budget'}
+                </span>
+                <span className="text-3xl font-extrabold text-gray-900 dark:text-white transition-all duration-200">
+                    {activeItem ? formatCurrency(activeItem.value) : formatCurrency(total)}
+                </span>
+                {activeItem && (
+                    <span className={`text-xs font-bold text-white mt-2 px-3 py-1 rounded-full shadow-sm transition-colors duration-300`} style={{ backgroundColor: activeItem.color }}>
+                        {Math.round(activeItem.percent * 100)}%
+                    </span>
+                )}
+            </div>
+        </div>
+    );
+}
+
 // --- SOPHISTICATED SKELETONS ---
 const LoadingPulse = ({ className }: { className: string }) => (
     <div className={`bg-gray-200 dark:bg-gray-700 animate-pulse ${className}`} />
@@ -1185,17 +1277,6 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
             { label: 'miscellaneous', display: 'Misc', value: breakdown.miscellaneous, color: '#9ca3af', tailwindColor: 'bg-gray-400' }, // gray-400
         ];
 
-        // Prepare Conic Gradient for Pie Chart
-        let currentAngle = 0;
-        const gradientParts = budgetItems.map(item => {
-            const percentage = total > 0 ? (item.value / total) * 100 : 0;
-            const start = currentAngle;
-            const end = currentAngle + percentage;
-            currentAngle = end;
-            return `${item.color} ${start}% ${end}%`;
-        });
-        const conicGradient = `conic-gradient(${gradientParts.join(', ')})`;
-
         return (
             <div className="max-w-6xl mx-auto space-y-10">
                  {/* Edit Budget Toggle */}
@@ -1251,18 +1332,9 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                 </div>
                 
                 <div className="grid md:grid-cols-2 gap-10 items-center bg-white dark:bg-gray-800 p-8 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                    {/* Donut Chart */}
-                    <div className="flex justify-center items-center relative">
-                        <div 
-                            className="w-64 h-64 rounded-full shadow-inner"
-                            style={{ background: total > 0 ? conicGradient : '#e5e7eb' }}
-                        ></div>
-                        <div className="absolute w-48 h-48 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center shadow-sm">
-                             <div className="text-center">
-                                <span className="block text-sm text-gray-400 font-medium">Total</span>
-                                <span className="block text-xl font-bold text-gray-800 dark:text-gray-100">{formatCurrency(total)}</span>
-                             </div>
-                        </div>
+                    {/* Interactive Donut Chart */}
+                    <div className="flex justify-center items-center w-full">
+                        <InteractiveDonutChart data={budgetItems} total={total} formatCurrency={formatCurrency} />
                     </div>
 
                     {/* Breakdown List */}
