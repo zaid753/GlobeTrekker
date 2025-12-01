@@ -47,7 +47,7 @@ package.json
 README.md
 
 yaml
-Copy code
+
 
 ---
 
@@ -57,8 +57,6 @@ Create a `.env` file in the project root:
 
 VITE_GEMINI_API_KEY=YOUR_GEMINI_KEY
 
-yaml
-Copy code
 
 That’s the ONLY required key.
 
@@ -72,11 +70,11 @@ git clone https://github.com/zaid753/GlobeTrekker.git
 cd GlobeTrekker
 2️⃣ Install dependencies
 bash
-Copy code
+
 npm install
 3️⃣ Start development server
 bash
-Copy code
+
 npm run dev
 Open the URL shown in the terminal, usually:
 
@@ -86,7 +84,6 @@ Open the URL shown in the terminal, usually:
 Gemini API is used inside /services to generate AI responses or content.
 The app reads your key from:
 
-cpp
-Copy code
+
 import.meta.env.VITE_GEMINI_API_KEY
 Make sure your .env file is set before running the project.
