@@ -65,13 +65,16 @@ That’s the ONLY required key.
 ## 🚀 Getting Started
 
 ### 1️⃣ Clone the repository
-```bash
+bash
 git clone https://github.com/zaid753/GlobeTrekker.git
 cd GlobeTrekker
+
 2️⃣ Install dependencies
 bash
 
 npm install
+
+---
 3️⃣ Start development server
 bash
 
@@ -79,6 +82,8 @@ npm run dev
 Open the URL shown in the terminal, usually:
 
 👉 http://localhost:5173/
+
+----
 
 🧠 Using the Gemini API
 Gemini API is used inside /services to generate AI responses or content.
