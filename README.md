@@ -69,6 +69,7 @@ bash
 git clone https://github.com/zaid753/GlobeTrekker.git
 cd GlobeTrekker
 
+---
 2️⃣ Install dependencies
 bash
 
