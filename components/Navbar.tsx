@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { GlobeIcon, LogoutIcon, UserIcon, GripVerticalIcon, CloseIcon, ArrowLeftIcon, SearchIcon } from './icons';
+import { GlobeIcon, LogoutIcon, UserIcon, GripVerticalIcon, CloseIcon, ArrowLeftIcon } from './icons';
 import ThemeToggle from './ThemeToggle';
 
 interface NavbarProps {
@@ -11,7 +10,7 @@ interface NavbarProps {
     onLogout: () => void;
     onProfileClick: () => void;
     onNavigate: (sectionId: string) => void;
-    currentView: 'hero' | 'form' | 'results' | 'profile';
+    currentView: 'hero' | 'form' | 'results' | 'profile' | 'admin';
     onSearch?: (query: string) => void;
 }
 
@@ -23,11 +22,9 @@ const Navbar: React.FC<NavbarProps> = ({
     onLogout, 
     onProfileClick,
     onNavigate,
-    currentView,
-    onSearch
+    currentView
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
   const navLinks = [
       { name: 'Features', id: 'features' },
@@ -43,17 +40,8 @@ const Navbar: React.FC<NavbarProps> = ({
       setIsMobileMenuOpen(false);
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-      e.preventDefault();
-      if (searchQuery.trim() && onSearch) {
-          onSearch(searchQuery.trim());
-          setSearchQuery('');
-          setIsMobileMenuOpen(false);
-      }
-  };
-
   return (
-    <nav className="fixed w-full top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 shadow-[0_8px_32px_rgba(0,0,0,0.05)] rounded-b-2xl transition-all duration-300">
+    <nav className="fixed w-full top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-b-2xl transition-all duration-300">
       <div className="container mx-auto px-4 md:px-6 py-3">
         <div className="flex items-center justify-between gap-4">
           {/* Logo */}
@@ -70,26 +58,10 @@ const Navbar: React.FC<NavbarProps> = ({
             </h1>
           </div>
 
-          {/* Search Bar - Visible only on Results View */}
-          {currentView === 'results' && (
-              <div className="flex-grow max-w-md hidden md:block mx-4">
-                  <form onSubmit={handleSearchSubmit} className="relative group">
-                      <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-cyan-500 transition-colors" />
-                      <input 
-                          type="text" 
-                          placeholder="Where to next?" 
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full bg-gray-100 dark:bg-gray-800 border border-transparent focus:border-cyan-500 dark:focus:border-cyan-400 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition-all dark:text-white placeholder-gray-500"
-                      />
-                  </form>
-              </div>
-          )}
-
-          {/* Desktop Navigation - ONLY VISIBLE ON HERO */}
-          {currentView === 'hero' ? (
-              <div className="hidden lg:flex items-center gap-6">
-                  {navLinks.map(link => (
+          {/* Desktop Navigation */}
+          <div className="hidden lg:flex items-center gap-6">
+              {currentView === 'hero' ? (
+                  navLinks.map(link => (
                       <button 
                         key={link.name}
                         onClick={() => handleNavClick(link.id)}
@@ -98,19 +70,17 @@ const Navbar: React.FC<NavbarProps> = ({
                           {link.name}
                           <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-cyan-600 dark:bg-cyan-400 transition-all duration-300 group-hover:w-full"></span>
                       </button>
-                  ))}
-              </div>
-          ) : (
-              // Show 'Home' button on other pages for easy return
-              <div className="hidden lg:flex items-center">
+                  ))
+              ) : (
                   <button 
                     onClick={() => handleNavClick('hero-top')}
-                    className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
+                    className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors group px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
                   >
-                      <ArrowLeftIcon className="h-4 w-4" /> Back to Home
+                      <ArrowLeftIcon className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+                      Back to Home
                   </button>
-              </div>
-          )}
+              )}
+          </div>
 
           {/* Right Actions */}
           <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
@@ -166,21 +136,7 @@ const Navbar: React.FC<NavbarProps> = ({
         {isMobileMenuOpen && (
             <div className="lg:hidden pt-4 pb-2 space-y-3 border-t border-gray-100 dark:border-gray-800 mt-3 animate-fade-in bg-white/95 dark:bg-gray-900/95 backdrop-blur-md rounded-lg px-2">
                 
-                {/* Mobile Search */}
-                {currentView === 'results' && (
-                    <form onSubmit={handleSearchSubmit} className="relative px-2 mb-4">
-                        <SearchIcon className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <input 
-                            type="text" 
-                            placeholder="Where to next?" 
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-gray-100 dark:bg-gray-800 border-none rounded-lg py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-cyan-500 dark:text-white"
-                        />
-                    </form>
-                )}
-
-                {currentView === 'hero' ? navLinks.map(link => (
+                {currentView === 'hero' && navLinks.map(link => (
                     <button 
                         key={link.name}
                         onClick={() => handleNavClick(link.id)}
@@ -188,14 +144,17 @@ const Navbar: React.FC<NavbarProps> = ({
                     >
                         {link.name}
                     </button>
-                )) : (
-                    <button 
+                ))}
+                
+                {currentView !== 'hero' && (
+                     <button 
                         onClick={() => handleNavClick('hero-top')}
-                        className="block w-full text-left px-4 py-3 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors font-medium"
+                        className="block w-full text-left px-4 py-3 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors font-medium flex items-center gap-2"
                     >
-                        Back to Home
+                        <ArrowLeftIcon className="h-4 w-4" /> Back to Home
                     </button>
                 )}
+
                 <div className="border-t border-gray-100 dark:border-gray-800 pt-3 mt-2 space-y-3">
                     {isAuthenticated ? (
                         <>

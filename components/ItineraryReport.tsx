@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import type { Itinerary, TripDetails, Activity, Hotel, FlightInfo, TravelAdvisory, LocationPoint, Restaurant, BookingType, Review } from '../types';
 import { 
@@ -729,7 +728,7 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                     <p className="text-gray-600 dark:text-gray-300 leading-relaxed">{itinerary.trip_summary.description}</p>
                 </div>
                 <div>
-                    <h4 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-3 font-serif">Key Highlights</h4>
+                    <h4 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-3 font-serif">Key Highlights</h4>
                     <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-gray-600 dark:text-gray-300">
                         {itinerary.trip_summary.highlights.map((h, i) => (
                             <li key={i} className="flex items-start gap-2">
@@ -816,7 +815,6 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                             const originalActivityIndex = itinerary.schedule[dayIndex].activities.findIndex(a => a === activity);
                             const key = `${dayIndex}-${activity.description}-${activity.time}`;
                             
-                            // Only show booking options for relevant types
                             const showBookButton = booked || (activity.estimated_cost > 0 && activity.type !== 'Sightseeing');
                             const showCost = activity.estimated_cost > 0;
                             
@@ -949,7 +947,7 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                 {(['budget', 'standard', 'luxury'] as const).map(tier => (
                     <div key={tier}>
                         <div className="flex items-center gap-3 mb-6">
-                            <h4 className="text-xl font-bold capitalize dark:text-white font-serif">{tier} Collection</h4>
+                            <h4 className="text-xl font-bold capitalize text-gray-800 dark:text-white font-serif">{tier} Collection</h4>
                             <div className="flex-grow h-px bg-gray-200 dark:bg-gray-700"></div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -969,7 +967,7 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                                     </div>
                                     <div className="p-5 flex flex-col flex-grow">
                                         <div className="flex justify-between items-start mb-2">
-                                            <h5 className="font-bold text-lg dark:text-white leading-tight">{hotel.name}</h5>
+                                            <h5 className="font-bold text-lg text-gray-900 dark:text-white leading-tight">{hotel.name}</h5>
                                             <div className="flex items-center gap-1">
                                                 <StarIcon className="h-4 w-4 text-amber-400 fill-current" />
                                                 <span className="font-bold text-sm text-gray-700 dark:text-gray-200">{calculateAverageRating(hotel.rating, hotel.reviews)}</span>
@@ -1021,7 +1019,7 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
             <div className="space-y-8">
                 {hasLongDistance && (
                     <div>
-                        <h4 className="text-xl font-bold mb-4 dark:text-white flex items-center gap-2 font-serif"><PlaneIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-400"/> Long Distance Travel</h4>
+                        <h4 className="text-xl font-bold mb-4 text-gray-800 dark:text-white flex items-center gap-2 font-serif"><PlaneIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-400"/> Long Distance Travel</h4>
                         <div className="grid gap-6">
                         {long_distance_options.map((opt, idx) => (
                             <div key={idx} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row gap-6 hover:shadow-md transition-shadow">
@@ -1031,7 +1029,7 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                                 <div className="flex-grow text-center md:text-left">
                                     <div className="flex flex-col md:flex-row md:justify-between items-center gap-2 mb-2">
                                         <div>
-                                            <h5 className="font-bold text-lg dark:text-white">{opt.mode}</h5>
+                                            <h5 className="font-bold text-lg text-gray-900 dark:text-white">{opt.mode}</h5>
                                             <p className="text-sm text-gray-600 dark:text-gray-300">{opt.details}</p>
                                         </div>
                                         <div className="text-right">
@@ -1084,12 +1082,12 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                 
                 {hasLocal && (
                     <div>
-                        <h4 className="text-xl font-bold mb-4 dark:text-white flex items-center gap-2 font-serif"><CarIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-400"/> Local Commute</h4>
+                        <h4 className="text-xl font-bold mb-4 text-gray-800 dark:text-white flex items-center gap-2 font-serif"><CarIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-400"/> Local Commute</h4>
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {local_suggestions.map((loc, idx) => (
                                 <div key={idx} className="bg-white dark:bg-gray-800 p-5 rounded-xl border dark:border-gray-700 shadow-sm hover:shadow-md hover:border-cyan-500 dark:hover:border-cyan-400 transition-all group">
                                     <div className="flex items-start justify-between mb-3">
-                                        <h5 className="font-bold dark:text-white flex items-center gap-2 text-lg"><ScooterIcon className="h-5 w-5 text-gray-400 group-hover:text-cyan-500 transition-colors"/> {loc.mode}</h5>
+                                        <h5 className="font-bold text-gray-900 dark:text-white flex items-center gap-2 text-lg"><ScooterIcon className="h-5 w-5 text-gray-400 group-hover:text-cyan-500 transition-colors"/> {loc.mode}</h5>
                                         <span className="text-xs font-bold bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600">{loc.estimated_cost_range}</span>
                                     </div>
                                     <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{loc.suggestion}</p>
@@ -1400,7 +1398,7 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                             value={editTitleValue} 
                             onChange={e => setEditTitleValue(e.target.value)} 
                             onKeyDown={handleKeyDown}
-                            className="text-3xl font-extrabold bg-white dark:bg-gray-700 border-2 border-cyan-500 rounded-lg px-3 py-1 focus:outline-none dark:text-white w-full shadow-sm font-serif"
+                            className="text-3xl font-extrabold bg-white dark:bg-gray-700 border-2 border-cyan-500 rounded-lg px-3 py-1 focus:outline-none text-gray-900 dark:text-white w-full shadow-sm font-serif"
                         />
                          <button onClick={handleTitleSave} className="bg-green-100 hover:bg-green-200 dark:bg-green-900/50 dark:hover:bg-green-900 text-green-700 dark:text-green-300 p-2 rounded-full transition-colors" title="Save Title">
                             <CheckCircleIcon className="h-6 w-6" />
@@ -1410,14 +1408,14 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                         </button>
                     </div>
                 ) : (
-                    <h2 className="text-3xl font-extrabold dark:text-white flex gap-2 items-center group cursor-pointer font-serif" onClick={startEditing} title="Click to edit trip title">
+                    <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white flex gap-2 items-center group cursor-pointer font-serif" onClick={startEditing} title="Click to edit trip title">
                         {itinerary.trip_title} 
                         <div className="bg-gray-100 dark:bg-gray-700 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity transform hover:scale-110">
                             <EditIcon className="h-4 w-4 text-gray-500 dark:text-gray-300"/>
                         </div>
                     </h2>
                 )}
-                <div className="flex items-center gap-3 mt-2 text-gray-500 dark:text-gray-400 text-sm font-medium">
+                <div className="flex items-center gap-3 mt-2 text-gray-700 dark:text-gray-400 text-sm font-medium">
                     <span className="flex items-center gap-1"><CalendarIcon className="h-4 w-4"/> {details.duration} Days</span>
                     <span>•</span>
                     <span className="flex items-center gap-1"><UserIcon className="h-4 w-4"/> {details.travellers} Travelers</span>

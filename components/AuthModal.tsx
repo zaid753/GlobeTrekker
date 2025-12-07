@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { UserIcon, LockIcon, ArrowRightIcon, GoogleIcon, CheckCircleIcon, CloseIcon, ArrowLeftIcon } from './icons';
+import { UserIcon, LockIcon, GoogleIcon, CheckCircleIcon, CloseIcon } from './icons';
 import { signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword } from '../services/firebase';
 
 interface AuthModalProps {

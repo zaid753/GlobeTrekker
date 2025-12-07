@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatBubbleIcon, CloseIcon, SendIcon, UserIcon } from './icons';
 import type { Itinerary, ChatMessage, TripDetails } from '../types';
@@ -58,7 +59,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary, details, isOpen, onToggle 
     return (
       <button
         onClick={onToggle}
-        className="fixed bottom-6 right-6 bg-cyan-600 text-white rounded-full p-4 shadow-lg hover:bg-cyan-700 transition-all duration-300 ease-in-out transform hover:scale-110 active:scale-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-cyan-700"
+        className="fixed bottom-8 right-8 bg-cyan-600 text-white rounded-full p-4 shadow-lg hover:bg-cyan-700 transition-all duration-300 ease-in-out transform hover:scale-110 active:scale-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-cyan-700 z-[90]"
         aria-label="Open chatbot"
       >
         <ChatBubbleIcon className="h-8 w-8" />
@@ -67,7 +68,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary, details, isOpen, onToggle 
   }
 
   return (
-    <div className="fixed bottom-6 right-6 w-full max-w-sm h-[60vh] bg-white dark:bg-gray-800 rounded-xl shadow-2xl flex flex-col transition-all duration-300 z-50">
+    <div className="fixed bottom-8 right-8 w-full max-w-sm h-[60vh] bg-white dark:bg-gray-800 rounded-xl shadow-2xl flex flex-col transition-all duration-300 z-[90]">
       <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
         <h3 className="font-bold text-lg text-gray-800 dark:text-gray-100">Chat with GlobeTrekker AI</h3>
         <button onClick={onToggle} className="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200" aria-label="Close chatbot">

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Navbar from './components/Navbar';
 import TripForm from './components/TripForm';
@@ -24,8 +23,9 @@ import ShareModal from './components/ShareModal';
 import { auth, onAuthStateChanged, logout, FirebaseUser } from './services/firebase';
 import Toast from './components/Toast';
 import ConfirmationModal from './components/ConfirmationModal';
+import AdminPanel from './components/AdminPanel';
 
-type View = 'hero' | 'form' | 'results' | 'profile';
+type View = 'hero' | 'form' | 'results' | 'profile' | 'admin';
 
 const loadingMessages = [
     "Analyzing your preferences...",
@@ -68,6 +68,9 @@ const processWithConcurrency = async <T,>(
 function App() {
   const [tripDetails, setTripDetails] = useState<TripDetails | null>(null);
   const [itinerary, setItinerary] = useState<Itinerary | null>(null);
+  // Separate state to manage what data pre-fills the form (null for new trips, populated for edits/search)
+  const [formInitialData, setFormInitialData] = useState<TripDetails | null>(null);
+  
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>('hero');
@@ -90,7 +93,6 @@ function App() {
   
   // UI Feedback States
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [saveConflictModal, setSaveConflictModal] = useState<{ isOpen: boolean; existingTripIndex: number } | null>(null);
 
   // Refs for accessing latest state in callbacks
   const currentUserRef = useRef<User | null>(null);
@@ -281,7 +283,6 @@ function App() {
   useEffect(() => {
     if (isAuthenticated && pendingAction) {
         // When auth state changes to true, execute pending action
-        // Note: The pendingAction closure might have stale state, but we use Refs for currentUser
         pendingAction();
         setPendingAction(null);
     }
@@ -362,7 +363,9 @@ function App() {
         if (restOfItinerary.food_recommendations) {
             cleanFood = {
                 ...restOfItinerary.food_recommendations,
-                restaurants: restOfItinerary.food_recommendations.restaurants.map(({ imageUrl, imageLoading, ...r }) => r)
+                restaurants: restOfItinerary.food_recommendations.restaurants.map(({ imageUrl, imageLoading, ...r }) => r),
+                local_specialties: restOfItinerary.food_recommendations.local_specialties,
+                ai_foodie_tip: restOfItinerary.food_recommendations.ai_foodie_tip
             };
         }
 
@@ -385,6 +388,88 @@ function App() {
         }
     }
   }, [itinerary, tripDetails, currentTripId, isCreatingNewTrip]);
+
+  const handleSaveTrip = () => {
+      if (!currentUser || !tripDetails || !itinerary) return;
+
+      // Clean the itinerary to remove large base64 strings before saving
+      const { 
+          accommodationLoading, 
+          transportationLoading, 
+          foodLoading, 
+          weatherLoading, 
+          ...restOfItinerary 
+      } = itinerary;
+
+      const cleanSchedule = restOfItinerary.schedule.map(({ imageUrl, imageLoading, ...day }) => day);
+      
+      let cleanAccommodation = undefined;
+      if (restOfItinerary.accommodation_recommendations) {
+           cleanAccommodation = {
+              budget: restOfItinerary.accommodation_recommendations.budget.map(({ imageUrl, imageLoading, ...h }) => h),
+              standard: restOfItinerary.accommodation_recommendations.standard.map(({ imageUrl, imageLoading, ...h }) => h),
+              luxury: restOfItinerary.accommodation_recommendations.luxury.map(({ imageUrl, imageLoading, ...h }) => h),
+              ai_stay_tip: restOfItinerary.accommodation_recommendations.ai_stay_tip
+          };
+      }
+
+      let cleanFood = undefined;
+      if (restOfItinerary.food_recommendations) {
+          cleanFood = {
+              ...restOfItinerary.food_recommendations,
+              restaurants: restOfItinerary.food_recommendations.restaurants.map(({ imageUrl, imageLoading, ...r }) => r),
+              local_specialties: restOfItinerary.food_recommendations.local_specialties,
+              ai_foodie_tip: restOfItinerary.food_recommendations.ai_foodie_tip
+          };
+      }
+
+      const storableItinerary = {
+          ...restOfItinerary,
+          schedule: cleanSchedule,
+          accommodation_recommendations: cleanAccommodation || restOfItinerary.accommodation_recommendations,
+          food_recommendations: cleanFood || restOfItinerary.food_recommendations,
+      };
+
+      const storageKey = `savedTrips_${currentUser.email}`;
+      const tripToSave: SavedTrip = {
+          details: tripDetails,
+          itinerary: storableItinerary as Itinerary
+      };
+
+      try {
+          const existingTripsJson = localStorage.getItem(storageKey);
+          let existingTrips: SavedTrip[] = existingTripsJson ? JSON.parse(existingTripsJson) : [];
+
+          if (editingTripIndex !== null && existingTrips[editingTripIndex]) {
+              // Update existing trip
+              existingTrips[editingTripIndex] = tripToSave;
+              setToast({ message: "Trip updated in your profile!", type: 'success' });
+          } else {
+              // Save as new trip
+              // Simple duplicate check
+              const isDuplicate = existingTrips.some(t => 
+                  t.details.destination === tripDetails.destination && 
+                  t.details.startDate === tripDetails.startDate &&
+                  t.itinerary.trip_title === itinerary.trip_title
+              );
+
+              if (isDuplicate) {
+                  setToast({ message: "This trip is already saved.", type: 'error' });
+                  return;
+              }
+
+              existingTrips.push(tripToSave);
+              // Set editing index to the new item so future saves update it
+              setEditingTripIndex(existingTrips.length - 1);
+              setToast({ message: "Trip saved to your profile!", type: 'success' });
+          }
+
+          localStorage.setItem(storageKey, JSON.stringify(existingTrips));
+      } catch (e) {
+          console.error(e);
+          setToast({ message: "Failed to save trip. Storage full.", type: 'error' });
+      }
+  };
 
   const handleFormSubmit = async (details: TripDetails) => {
     setIsLoading(true);
@@ -464,282 +549,173 @@ function App() {
       });
 
       generateWeatherForecast(details).then(weather => {
-           setItinerary(prev => prev ? ({ ...prev, weather_forecast: weather || undefined, weatherLoading: false }) : null);
+          setItinerary(prev => prev ? ({ ...prev, weather_forecast: weather || undefined, weatherLoading: false }) : null);
       });
       
-      getTravelAdvisories(details.destination, details.startDate, details.endDate).then(advisories => {
-          setTravelAdvisories(advisories);
-      });
+      getTravelAdvisories(details.destination, details.startDate, details.endDate).then(setTravelAdvisories);
       
-      extractLocationsFromSchedule(coreItinerary.schedule, details.destination).then(locations => {
-          setMapLocations(locations);
-      });
+      extractLocationsFromSchedule(coreItinerary.schedule, details.destination).then(setMapLocations);
 
     } catch (err: any) {
-      const errorMessage = err.message || "Failed to generate itinerary. Please try again.";
-      setError(errorMessage);
-      setToast({ message: errorMessage, type: 'error' });
       console.error(err);
-      navigateTo('form');
+      setError(err.message || "Failed to generate itinerary. Please try again.");
+      setItinerary(null);
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
   };
 
-  const handleResumeTrip = () => {
-      const storedDetails = localStorage.getItem('lastTripDetails');
-      const storedItinerary = localStorage.getItem('lastItinerary');
-      if (storedDetails && storedItinerary) {
-          const details = JSON.parse(storedDetails);
-          const savedItinerary = JSON.parse(storedItinerary);
-          setTripDetails(details);
-          setItinerary(savedItinerary);
-          generateImagesParallel(savedItinerary, details);
-          navigateTo('results');
-      }
-  };
-  
-  const handleSaveTrip = () => {
-      guardWithAuth(() => {
-          // Short timeout to ensure visual spinner is seen by user
-          setTimeout(() => {
-              const user = currentUserRef.current;
-              if (!tripDetails || !itinerary || !user) return;
-              
-              const existingTrips: SavedTrip[] = JSON.parse(localStorage.getItem(`savedTrips_${user.email}`) || '[]');
-              let updatedTrips = [...existingTrips];
-              
-              // If we are editing a specific trip index, update it directly
-              if (editingTripIndex !== null && editingTripIndex >= 0 && editingTripIndex < existingTrips.length) {
-                  updatedTrips[editingTripIndex] = { details: tripDetails, itinerary };
-                  localStorage.setItem(`savedTrips_${user.email}`, JSON.stringify(updatedTrips));
-                  setToast({ message: 'Trip changes saved successfully!', type: 'success' });
-                  return;
-              }
-
-              // Check for duplicates only if not editing a known index
-              const conflictIndex = existingTrips.findIndex(t => 
-                 t.details.destination === tripDetails.destination && t.details.startDate === tripDetails.startDate
-              );
-
-              if (conflictIndex >= 0 && !currentTripId) {
-                  setSaveConflictModal({ isOpen: true, existingTripIndex: conflictIndex });
-                  return;
-              }
-              
-              const newTrip: SavedTrip = { details: tripDetails, itinerary };
-              updatedTrips.push(newTrip);
-              
-              localStorage.setItem(`savedTrips_${user.email}`, JSON.stringify(updatedTrips));
-              setEditingTripIndex(updatedTrips.length - 1); // Set as currently editing
-              setToast({ message: 'New trip saved successfully!', type: 'success' });
-          }, 800); // 800ms delay for UX
-      });
-  };
-
-  const confirmOverwrite = () => {
-      const user = currentUserRef.current;
-      if (saveConflictModal && tripDetails && itinerary && user) {
-          const existingTrips: SavedTrip[] = JSON.parse(localStorage.getItem(`savedTrips_${user.email}`) || '[]');
-          existingTrips[saveConflictModal.existingTripIndex] = { details: tripDetails, itinerary };
-          localStorage.setItem(`savedTrips_${user.email}`, JSON.stringify(existingTrips));
-          setEditingTripIndex(saveConflictModal.existingTripIndex); // Update editing context
-          setSaveConflictModal(null);
-          setToast({ message: 'Trip updated successfully!', type: 'success' });
-      }
-  };
-
-  const saveAsNew = () => {
-      const user = currentUserRef.current;
-      if (saveConflictModal && tripDetails && itinerary && user) {
-           const existingTrips: SavedTrip[] = JSON.parse(localStorage.getItem(`savedTrips_${user.email}`) || '[]');
-           const newTrip = { 
-               details: tripDetails, 
-               itinerary: { ...itinerary, trip_title: `${itinerary.trip_title} (Copy)` } 
-           };
-           existingTrips.push(newTrip);
-           localStorage.setItem(`savedTrips_${user.email}`, JSON.stringify(existingTrips));
-           setEditingTripIndex(existingTrips.length - 1); // Update editing context to the new copy
-           setSaveConflictModal(null);
-           setToast({ message: 'Trip saved as new copy!', type: 'success' });
-      }
-  };
-  
-  const handlePlanNewTrip = () => {
-      // Don't clear tripDetails immediately so we can go back if needed
-      setIsCreatingNewTrip(true);
-      setEditingTripIndex(null);
-      setCurrentTripId(null);
-      navigateTo('form');
-  };
-
-  const handleSearch = (query: string) => {
-      guardWithAuth(() => {
-          setIsCreatingNewTrip(true);
-          setEditingTripIndex(null);
-          setCurrentTripId(null);
-          // Pre-fill the destination in the trip form by updating tripDetails
-          // Since we navigate to 'form', the form will pick up initialDetails
-          setTripDetails({
-              destination: query,
-              departureCity: userPreferences.defaultDepartureCity || '',
-              startDate: '',
-              endDate: '',
-              travellers: 1,
-              travelStyle: userPreferences.defaultTravelStyle || 'Standard',
-              interests: userPreferences.defaultInterests || [],
-              duration: 0
-          });
-          navigateTo('form');
-      });
-  };
-
-  const handleTryGate = (action: () => void) => {
-      guardWithAuth(action);
-  }
-
-  const handleNavbarNavigation = useCallback((sectionId: string) => {
-      if (view !== 'hero') {
-          setView('hero');
-          // Allow time for view switch before scrolling
-          setTimeout(() => {
-              const element = document.getElementById(sectionId);
-              if (element) {
-                  element.scrollIntoView({ behavior: 'smooth' });
-              }
-          }, 100);
-      } else {
-          const element = document.getElementById(sectionId);
-          if (element) {
-              element.scrollIntoView({ behavior: 'smooth' });
-          }
-      }
-  }, [view]);
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-white font-sans transition-colors duration-300">
-      <Navbar 
-        isAuthenticated={isAuthenticated} 
-        userEmail={currentUser?.email || null}
-        onLoginClick={() => { setAuthView('login'); setIsAuthModalOpen(true); }}
-        onSignUpClick={() => { setAuthView('signup'); setIsAuthModalOpen(true); }}
-        onLogout={() => logout()}
-        onProfileClick={() => navigateTo('profile')}
-        onNavigate={handleNavbarNavigation}
-        currentView={view}
-        onSearch={handleSearch}
-      />
+    <div className={`min-h-screen bg-white dark:bg-gray-950 transition-colors duration-300 ${view === 'admin' ? '' : 'font-sans'}`}>
+        {view !== 'admin' && (
+            <Navbar 
+                isAuthenticated={isAuthenticated}
+                userEmail={currentUser?.email || null}
+                onLoginClick={() => { setAuthView('login'); setIsAuthModalOpen(true); }}
+                onSignUpClick={() => { setAuthView('signup'); setIsAuthModalOpen(true); }}
+                onLogout={logout}
+                onProfileClick={() => navigateTo('profile')}
+                onNavigate={(id) => {
+                    if (view !== 'hero') navigateTo('hero');
+                    setTimeout(() => {
+                        const el = document.getElementById(id);
+                        if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }, 100);
+                }}
+                currentView={view}
+                onSearch={(q) => console.log(q)}
+            />
+        )}
 
-      {view === 'hero' && (
-        <HeroSection 
-            onPlanTripClick={() => handleTryGate(handlePlanNewTrip)} 
-            onResumeClick={() => handleTryGate(handleResumeTrip)}
-            hasResumableTrip={hasResumableTrip}
+        {view === 'hero' && (
+            <HeroSection 
+                onPlanTripClick={() => guardWithAuth(() => navigateTo('form'))} 
+                onResumeClick={() => guardWithAuth(() => {
+                    const savedItinerary = localStorage.getItem('lastItinerary');
+                    const savedDetails = localStorage.getItem('lastTripDetails');
+                    if (savedItinerary && savedDetails) {
+                        try {
+                            setItinerary(JSON.parse(savedItinerary));
+                            setTripDetails(JSON.parse(savedDetails));
+                            navigateTo('results');
+                        } catch (e) {
+                            setToast({ message: "Failed to resume journey. Data corrupted.", type: 'error' });
+                        }
+                    } else {
+                        setToast({ message: "No saved journey found to resume.", type: 'error' });
+                    }
+                })}
+                hasResumableTrip={hasResumableTrip}
+                onAdminLogin={() => navigateTo('admin')}
+            />
+        )}
+
+        {view === 'form' && (
+            <TripForm 
+                onSubmit={handleFormSubmit} 
+                isLoading={isLoading} 
+                initialDetails={formInitialData}
+                onBack={handleBack}
+                canGoBack={true}
+                userPreferences={userPreferences}
+            />
+        )}
+
+        {view === 'results' && (
+            isLoading ? (
+                <LoadingState message={currentLoadingMessage} />
+            ) : (itinerary && tripDetails) ? (
+                <ItineraryReport 
+                    itinerary={itinerary} 
+                    details={tripDetails} 
+                    setItinerary={setItinerary}
+                    onSaveTrip={() => guardWithAuth(handleSaveTrip)}
+                    onShare={() => setIsShareModalOpen(true)}
+                    onEditTrip={() => {
+                        setFormInitialData(tripDetails);
+                        navigateTo('form');
+                    }}
+                    onPlanNewTrip={() => {
+                        setFormInitialData(null);
+                        setIsCreatingNewTrip(true);
+                        navigateTo('form');
+                    }}
+                    travelAdvisories={travelAdvisories}
+                    mapLocations={mapLocations}
+                    guardWithAuth={guardWithAuth}
+                    onOpenChat={() => setIsChatOpen(true)}
+                />
+            ) : (
+                <div className="pt-28 text-center text-red-500">
+                    <p>{error || "Something went wrong. Please try again."}</p>
+                    <button onClick={() => navigateTo('hero')} className="mt-4 text-cyan-600 hover:underline">Go Home</button>
+                </div>
+            )
+        )}
+
+        {view === 'profile' && currentUser && (
+            <UserProfilePage 
+                user={currentUser}
+                onLoadTrip={(trip, index) => {
+                    setTripDetails(trip.details);
+                    setItinerary(trip.itinerary);
+                    setEditingTripIndex(index);
+                    navigateTo('results');
+                }}
+                onPlanNewTrip={() => {
+                    setFormInitialData(null);
+                    setIsCreatingNewTrip(true);
+                    navigateTo('form');
+                }}
+                onBack={handleBack}
+                canGoBack={true}
+                onEditTrip={(trip) => {
+                    setFormInitialData(trip.details);
+                    navigateTo('form');
+                }}
+                preferences={userPreferences}
+                onPreferencesChange={(prefs) => {
+                    setUserPreferences(prefs);
+                    localStorage.setItem(`userPrefs_${currentUser.email}`, JSON.stringify(prefs));
+                }}
+            />
+        )}
+
+        {view === 'admin' && (
+            <AdminPanel onExit={() => navigateTo('hero')} />
+        )}
+
+        <AuthModal 
+            isOpen={isAuthModalOpen} 
+            onClose={() => setIsAuthModalOpen(false)} 
+            initialView={authView}
         />
-      )}
-      
-      {view === 'profile' && currentUser && (
-          <UserProfilePage 
-              user={currentUser}
-              onLoadTrip={(trip, index) => {
-                  setTripDetails(trip.details);
-                  setItinerary(trip.itinerary);
-                  setEditingTripIndex(index); // Track which trip we are editing
-                  generateImagesParallel(trip.itinerary, trip.details);
-                  navigateTo('results');
-              }}
-              onPlanNewTrip={handlePlanNewTrip}
-              onBack={() => handleBack()}
-              canGoBack={viewHistory.length > 1}
-              onEditTrip={(trip) => {
-                  setTripDetails(trip.details);
-                  setItinerary(trip.itinerary);
-                  setEditingTripIndex(null); // Form edits might lead to new generations, so we unlink from saved index for now
-                  navigateTo('form');
-              }}
-              preferences={userPreferences}
-              onPreferencesChange={(newPrefs) => {
-                  setUserPreferences(newPrefs);
-                  localStorage.setItem(`userPrefs_${currentUser.email}`, JSON.stringify(newPrefs));
-              }}
-          />
-      )}
 
-      {view === 'form' && (
-        <TripForm 
-          onSubmit={handleFormSubmit} 
-          isLoading={isLoading} 
-          // Only pass initial details if we are NOT creating a new trip from scratch
-          // OR if we just initiated a search which set tripDetails
-          initialDetails={isCreatingNewTrip ? tripDetails : tripDetails}
-          onBack={() => handleBack()}
-          canGoBack={viewHistory.length > 1}
-          userPreferences={userPreferences}
-        />
-      )}
+        {itinerary && tripDetails && (
+            <ShareModal 
+                isOpen={isShareModalOpen} 
+                onClose={() => setIsShareModalOpen(false)} 
+                itinerary={itinerary}
+                details={tripDetails}
+            />
+        )}
 
-      {view === 'results' && isLoading && (
-        <LoadingState message={currentLoadingMessage} />
-      )}
+        {toast && (
+            <Toast 
+                message={toast.message} 
+                type={toast.type} 
+                onClose={() => setToast(null)} 
+            />
+        )}
 
-      {view === 'results' && !isLoading && itinerary && tripDetails && (
-        <ItineraryReport 
-            itinerary={itinerary}
-            details={tripDetails}
-            setItinerary={setItinerary}
-            onSaveTrip={handleSaveTrip}
-            onShare={() => setIsShareModalOpen(true)}
-            onEditTrip={() => navigateTo('form')}
-            onPlanNewTrip={handlePlanNewTrip}
-            travelAdvisories={travelAdvisories}
-            mapLocations={mapLocations}
-            guardWithAuth={guardWithAuth}
-            onOpenChat={() => setIsChatOpen(true)}
-        />
-      )}
-      
-      {/* Shared Modals */}
-      <AuthModal 
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        initialView={authView}
-      />
-
-      <ChatBot 
-        itinerary={itinerary} 
-        details={tripDetails}
-        isOpen={isChatOpen}
-        onToggle={() => setIsChatOpen(!isChatOpen)}
-      />
-      
-      {isShareModalOpen && itinerary && tripDetails && (
-          <ShareModal 
-            isOpen={isShareModalOpen} 
-            onClose={() => setIsShareModalOpen(false)} 
-            itinerary={itinerary} 
-            details={tripDetails} 
-          />
-      )}
-
-      {toast && (
-        <Toast 
-            message={toast.message} 
-            type={toast.type} 
-            onClose={() => setToast(null)} 
-        />
-      )}
-      
-      <ConfirmationModal 
-          isOpen={saveConflictModal !== null}
-          title="Trip Already Exists"
-          message="A trip with this destination and date already exists. Do you want to overwrite it or save as a new trip?"
-          confirmLabel="Overwrite"
-          cancelLabel="Cancel"
-          onConfirm={confirmOverwrite}
-          onCancel={() => setSaveConflictModal(null)}
-          onAlternative={saveAsNew}
-          alternativeLabel="Save as New"
-      />
+        {view !== 'admin' && (
+            <ChatBot 
+                itinerary={itinerary} 
+                details={tripDetails} 
+                isOpen={isChatOpen} 
+                onToggle={() => setIsChatOpen(!isChatOpen)} 
+            />
+        )}
     </div>
   );
 }

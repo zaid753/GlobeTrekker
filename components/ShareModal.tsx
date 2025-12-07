@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Itinerary, TripDetails } from '../types';
-import { CloseIcon, CheckCircleIcon, ShareIcon } from './icons';
+import { CloseIcon, CheckCircleIcon, ShareIcon, FileTextIcon } from './icons';
 
 interface ShareModalProps {
     isOpen: boolean;
@@ -22,6 +22,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, itinerary, det
     });
     const [generatedLink, setGeneratedLink] = useState('');
     const [isCopied, setIsCopied] = useState(false);
+    const [isTextCopied, setIsTextCopied] = useState(false);
 
     useEffect(() => {
         // Reset state when modal is opened
@@ -38,6 +39,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, itinerary, det
             });
             setGeneratedLink('');
             setIsCopied(false);
+            setIsTextCopied(false);
         }
     }, [isOpen, itinerary]);
     
@@ -95,10 +97,32 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, itinerary, det
             filteredItinerary.schedule = itinerary.schedule.filter((_, index) => selections.days[index]);
         }
 
-        // Create a storable version without image data to prevent storage quota errors
+        // Clean images aggressively for sharing to avoid storage limits
+        const cleanSchedule = filteredItinerary.schedule.map(({ imageUrl, imageLoading, ...day }) => day);
+      
+        let cleanAccommodation = undefined;
+        if (filteredItinerary.accommodation_recommendations) {
+             cleanAccommodation = {
+                budget: filteredItinerary.accommodation_recommendations.budget.map(({ imageUrl, imageLoading, ...h }) => h),
+                standard: filteredItinerary.accommodation_recommendations.standard.map(({ imageUrl, imageLoading, ...h }) => h),
+                luxury: filteredItinerary.accommodation_recommendations.luxury.map(({ imageUrl, imageLoading, ...h }) => h),
+                ai_stay_tip: filteredItinerary.accommodation_recommendations.ai_stay_tip
+            };
+        }
+
+        let cleanFood = undefined;
+        if (filteredItinerary.food_recommendations) {
+            cleanFood = {
+                ...filteredItinerary.food_recommendations,
+                restaurants: filteredItinerary.food_recommendations.restaurants.map(({ imageUrl, imageLoading, ...r }) => r),
+            };
+        }
+
         const storableItinerary = {
             ...filteredItinerary,
-            schedule: filteredItinerary.schedule.map(({ imageUrl, imageLoading, ...day }) => day),
+            schedule: cleanSchedule,
+            accommodation_recommendations: cleanAccommodation || filteredItinerary.accommodation_recommendations,
+            food_recommendations: cleanFood || filteredItinerary.food_recommendations,
         };
         
         // Use a more robust unique ID
@@ -108,7 +132,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, itinerary, det
             const shareUrl = `${window.location.origin}${window.location.pathname}?tripId=${shareId}`;
             setGeneratedLink(shareUrl);
         } catch (e) {
-            alert("Could not save shared trip. Your browser's storage may be full.");
+            alert("Could not save shared trip link locally. Storage might be full.");
             console.error("Error saving to local storage:", e);
         }
     };
@@ -117,6 +141,33 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, itinerary, det
         navigator.clipboard.writeText(generatedLink).then(() => {
             setIsCopied(true);
             setTimeout(() => setIsCopied(false), 2000);
+        });
+    };
+
+    const handleCopyTextSummary = () => {
+        let text = `Trip to ${details.destination} (${details.duration} Days)\n\n`;
+        if (selections.summary) {
+            text += `Summary: ${itinerary.trip_summary.description}\n\n`;
+        }
+        if (selections.itinerary) {
+            itinerary.schedule.forEach((day, idx) => {
+                if (selections.days[idx]) {
+                    text += `Day ${day.day}: ${day.title}\n`;
+                    day.activities.forEach(act => {
+                        text += `- ${act.time}: ${act.description}\n`;
+                    });
+                    text += '\n';
+                }
+            });
+        }
+        if (selections.budget) {
+            text += `Total Est. Cost: ${new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(itinerary.total_estimated_cost)}\n`;
+        }
+        text += `\nPlanned with GlobeTrekker AI`;
+
+        navigator.clipboard.writeText(text).then(() => {
+            setIsTextCopied(true);
+            setTimeout(() => setIsTextCopied(false), 2000);
         });
     };
     
@@ -164,8 +215,8 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, itinerary, det
                 <div className="flex items-center mb-4 pb-4 border-b dark:border-gray-700">
                     <ShareIcon className="h-8 w-8 text-cyan-600 dark:text-cyan-400 mr-3" />
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Customize Your Shared Trip</h2>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Select the sections you want to include in your shareable link.</p>
+                        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Share Your Trip</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Select sections to include in your shareable link or text.</p>
                     </div>
                 </div>
 
@@ -210,36 +261,59 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, itinerary, det
                     {generatedLink ? (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Your custom link is ready:</label>
-                            <div className="flex gap-2 mt-1">
-                                <input type="text" readOnly value={generatedLink} className="form-input w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-lg text-sm" />
-                                {navigator.share && (
+                            <div className="flex gap-2 mt-1 flex-col sm:flex-row">
+                                <input 
+                                    type="text" 
+                                    readOnly 
+                                    value={generatedLink} 
+                                    className="flex-grow w-full bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm px-3 py-2 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500" 
+                                />
+                                <div className="flex gap-2">
+                                    {navigator.share && (
+                                        <button
+                                            onClick={handleNativeShare}
+                                            className="font-semibold py-2 px-4 rounded-lg transition-all duration-300 transform active:scale-95 flex items-center justify-center text-sm bg-cyan-600 text-white hover:bg-cyan-700"
+                                            aria-label="Share via native dialog"
+                                        >
+                                            <ShareIcon className="h-5 w-5"/>
+                                        </button>
+                                    )}
                                     <button
-                                        onClick={handleNativeShare}
-                                        className="font-semibold py-2 px-4 rounded-lg transition-all duration-300 transform active:scale-95 flex items-center justify-center text-sm bg-cyan-600 text-white hover:bg-cyan-700"
-                                        aria-label="Share via native dialog"
+                                        onClick={handleCopyLink}
+                                        className={`flex-grow sm:flex-initial sm:w-28 font-semibold py-2 px-4 rounded-lg transition-all duration-300 transform active:scale-95 flex items-center justify-center text-sm
+                                        ${isCopied ? 'bg-green-600 text-white' : 'bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-100'}`}
+                                        aria-label="Copy link to clipboard"
                                     >
-                                        <ShareIcon className="h-5 w-5 mr-1.5"/>
-                                        Share
+                                        {isCopied ? <><CheckCircleIcon className="h-5 w-5 mr-1.5"/> Copied!</> : 'Copy Link'}
                                     </button>
-                                )}
-                                <button
-                                    onClick={handleCopyLink}
-                                    className={`w-28 flex-shrink-0 font-semibold py-2 px-4 rounded-lg transition-all duration-300 transform active:scale-95 flex items-center justify-center text-sm
-                                    ${isCopied ? 'bg-green-600 text-white' : (navigator.share ? 'bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-100' : 'bg-cyan-600 text-white hover:bg-cyan-700')}`}
-                                    aria-label="Copy link to clipboard"
-                                >
-                                    {isCopied ? <><CheckCircleIcon className="h-5 w-5 mr-1.5"/> Copied!</> : 'Copy'}
+                                </div>
+                            </div>
+                            <div className="mt-3 text-center">
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">- OR -</p>
+                                <button onClick={handleCopyTextSummary} className="text-cyan-600 dark:text-cyan-400 text-sm font-semibold hover:underline flex items-center justify-center gap-1 w-full">
+                                    {isTextCopied ? <CheckCircleIcon className="h-4 w-4"/> : <FileTextIcon className="h-4 w-4"/>}
+                                    {isTextCopied ? 'Summary Copied to Clipboard' : 'Copy Text Summary'}
                                 </button>
                             </div>
                         </div>
                     ) : (
-                         <button 
-                            onClick={handleGenerateLink} 
-                            className="w-full bg-cyan-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-cyan-700 transition-all duration-300 transform active:scale-95 flex items-center justify-center"
-                         >
-                            <ShareIcon className="h-5 w-5 mr-2"/>
-                            Generate Share Link
-                        </button>
+                         <div className="flex gap-3">
+                             <button 
+                                onClick={handleGenerateLink} 
+                                className="flex-1 bg-cyan-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-cyan-700 transition-all duration-300 transform active:scale-95 flex items-center justify-center"
+                             >
+                                <ShareIcon className="h-5 w-5 mr-2"/>
+                                Generate Link
+                            </button>
+                            <button
+                                onClick={handleCopyTextSummary}
+                                className={`flex-1 font-bold py-3 px-4 rounded-lg transition-all duration-300 transform active:scale-95 flex items-center justify-center border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-white
+                                ${isTextCopied ? 'text-green-600 border-green-500' : 'text-gray-700'}`}
+                            >
+                                {isTextCopied ? <CheckCircleIcon className="h-5 w-5 mr-2"/> : <FileTextIcon className="h-5 w-5 mr-2"/>}
+                                {isTextCopied ? 'Copied' : 'Copy Text'}
+                            </button>
+                         </div>
                     )}
                 </div>
             </div>

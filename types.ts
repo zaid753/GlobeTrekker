@@ -160,6 +160,13 @@ export interface User {
   email: string;
 }
 
+export interface UserProfileDetails {
+    fullName?: string;
+    phone?: string;
+    location?: string;
+    bio?: string;
+}
+
 export interface SavedTrip {
   details: TripDetails;
   itinerary: Itinerary;

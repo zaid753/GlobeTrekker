@@ -123,13 +123,16 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
 
   const handleBudgetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
+    
+    // Allow clearing the input
     if (value === '') {
         setBudget(undefined);
         setErrors(prev => ({ ...prev, budget: null }));
         return;
     }
     
-    // Prevent entering non-numeric characters (effectively prevents negative signs too)
+    // Regex validation: Allows only digits (positive integers)
+    // This prevents negative signs, decimals, or any non-numeric characters
     if (!/^\d+$/.test(value)) {
         return;
     }
@@ -297,7 +300,7 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
                                     {departureSuggestions.map((city) => (
                                         <li 
                                             key={city} 
-                                            className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                                            className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-800 dark:text-gray-200"
                                             onMouseDown={() => handleSelectDeparture(city)}
                                         >
                                             {city}
@@ -328,7 +331,7 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
                                     {destinationSuggestions.map((city) => (
                                         <li 
                                             key={city} 
-                                            className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                                            className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-800 dark:text-gray-200"
                                             onMouseDown={() => handleSelectDestinationSuggestion(city)}
                                         >
                                             {city}
