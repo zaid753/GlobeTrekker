@@ -6,7 +6,7 @@ It allows users to explore global data, destinations, and visual elements in a s
 This project requires only *one API dependency*:
 
 👉 *Google Gemini API* (for generating AI-powered content)
-
+ 
 There is *no backend*, no database, and no additional external services.
 
 ---
