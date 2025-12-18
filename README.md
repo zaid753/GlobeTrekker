@@ -1,95 +1,20 @@
-# 🌍 GlobeTrekker
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
 
-GlobeTrekker is a lightweight, interactive React + TypeScript application built using Vite.  
-It allows users to explore global data, destinations, and visual elements in a simple, fast, and modern UI.
+# Run and deploy your AI Studio app
 
-This project requires only *one API dependency*:
+This contains everything you need to run your app locally.
 
-👉 *Google Gemini API* (for generating AI-powered content)
- 
-There is *no backend*, no database, and no additional external services.
+View your app in AI Studio: https://ai.studio/apps/drive/1EOSRwQ1JRjo1z046dNCt-CKD_xaVaq_k
 
----
+## Run Locally
 
-## ✨ Features
-
-•⁠  ⁠⚛️ Built with React + TypeScript  
-•⁠  ⁠⚡ Lightning-fast development using Vite  
-•⁠  ⁠🌎 Clean UI for exploring global content  
-•⁠  ⁠🤖 AI-powered generation using *Gemini API*  
-•⁠  ⁠💻 100% client-side — no server required  
-
----
-
-## 🛠️ Technologies Used
-
-•⁠  ⁠*React*  
-•⁠  ⁠*TypeScript*  
-•⁠  ⁠*Vite*  
-•⁠  ⁠*Google Gemini API*
-
----
-
-## 📂 Project Structure
-
-/src
-App.tsx
-index.tsx
-components/
-services/
-data/
-hooks/
-styles.css
-public/
-vite.config.ts
-tsconfig.json
-package.json
-README.md
+**Prerequisites:**  Node.js
 
 
----
-
-## 🔑 Environment Variables
-
-Create a ⁠ .env ⁠ file in the project root:
-
-VITE_GEMINI_API_KEY=YOUR_GEMINI_KEY
-
-yaml
-
-
-That’s the ONLY required key.
-
----
-
-## 🚀 Getting Started
-
-### 1️⃣ Clone the repository
-bash
-git clone https://github.com/zaid753/GlobeTrekker.git
-cd GlobeTrekker
-
----
-2️⃣ Install dependencies
-bash
-
-npm install
-
----
-3️⃣ Start development server
-bash
-
-npm run dev
-Open the URL shown in the terminal, usually:
-
-👉 http://localhost:5173/
-
-----
-
-🧠 Using the Gemini API
-Gemini API is used inside /services to generate AI responses or content.
-The app reads your key from:
-
-
-import.meta.env.VITE_GEMINI_API_KEY
-Make sure your .env file is set before running the project.
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`
