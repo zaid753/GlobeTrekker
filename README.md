@@ -41,9 +41,9 @@ This project was developed as part of an academic mini project to explore client
 - Modular, component-based project structure  
 
 ---
+## 📂 Project Structure
 
-## Project Structure
-
+src/
 ├── components/
 ├── services/
 ├── data/
@@ -57,7 +57,6 @@ vite.config.ts
 tsconfig.json
 package.json
 README.md
-
 ---
 ## 🔑 Environment Variables
 
