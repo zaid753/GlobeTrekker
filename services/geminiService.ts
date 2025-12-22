@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import type { TripDetails, Itinerary, ChatMessage, TravelAdvisory, DayPlan, AccommodationRecommendations, Transportation, FoodRecommendations, WeatherForecast, LocationPoint } from '../types';
 
@@ -265,7 +264,7 @@ const generateContentOrThrow = async <T>(prompt: string, schema: object): Promis
         let jsonText = '';
         try {
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3-flash-preview',
                 contents: prompt,
                 config: {
                     responseMimeType: "application/json",
@@ -389,10 +388,14 @@ export const generateImageForActivity = async (prompt: string, context: ImageCon
                 },
             });
 
-            const part = response.candidates?.[0]?.content?.parts?.[0];
-
-            if (part?.inlineData) {
-                return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            // Fix: Iterating through parts to find the image part as per @google/genai guidelines
+            const candidates = response.candidates;
+            if (candidates && candidates.length > 0 && candidates[0].content && candidates[0].content.parts) {
+                for (const part of candidates[0].content.parts) {
+                    if (part.inlineData) {
+                        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                    }
+                }
             }
             return null;
         }, 3, 2000); 
@@ -423,7 +426,7 @@ export const getChatResponse = async (history: ChatMessage[], newMessage: string
         }
 
         const chat = ai.chats.create({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-flash-preview',
             history: history.map(msg => ({
                 role: msg.role,
                 parts: [{ text: msg.text }]
@@ -432,7 +435,8 @@ export const getChatResponse = async (history: ChatMessage[], newMessage: string
         });
 
         const response = await chat.sendMessage({ message: newMessage });
-        return response.text;
+        // Fix: Use property .text and handle undefined as per @google/genai guidelines
+        return response.text || "I'm sorry, I'm having trouble thinking of a response right now.";
     } catch (error) {
         return "I'm having trouble connecting right now.";
     }
