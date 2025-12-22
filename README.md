@@ -65,7 +65,6 @@ Create a ⁠ .env ⁠ file in the project root:
 
 VITE_GEMINI_API_KEY=YOUR_GEMINI_KEY
 
-That’s the ONLY required key.
 ---
 
 ## Getting Started
