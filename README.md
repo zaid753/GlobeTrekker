@@ -59,7 +59,26 @@ package.json
 README.md
 
 ---
+## 🔑 Environment Variables
 
+Create a ⁠ .env ⁠ file in the project root:
+
+VITE_GEMINI_API_KEY=YOUR_GEMINI_KEY
+
+That’s the ONLY required key.
+---
+
+## Getting Started
+
+Clone the repository, install dependencies, and start the development server:
+
+```bash
+git clone https://github.com/zaid753/GlobeTrekker.git
+cd GlobeTrekker
+npm install
+npm run dev
+
+---
 ## Run Locally
 
 **Prerequisites:**  Node.js
