@@ -167,14 +167,14 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onPlanTripClick, onResumeClic
                     loop
                     muted
                     playsInline
-                    className="w-full h-full object-cover opacity-60 dark:opacity-40 transition-opacity duration-1000 scale-110"
-                    poster="https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=1920&auto=format&fit=crop"
+                    className="w-full h-full object-cover opacity-70 dark:opacity-50 transition-opacity duration-1000 scale-105"
+                    poster="https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=1920&auto=format&fit=crop"
                 >
-                    <source src="https://assets.mixkit.co/videos/preview/mixkit-top-aerial-shot-of-seashore-with-rocks-1090-large.mp4" type="video/mp4" />
+                    <source src="https://assets.mixkit.co/videos/preview/mixkit-aerial-view-of-a-winding-road-in-a-mountain-forest-43288-large.mp4" type="video/mp4" />
                     Your browser does not support the video tag.
                 </video>
                 {/* Overlay Gradient */}
-                <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-gray-900 dark:to-gray-950"></div>
+                <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-gray-900 dark:to-gray-950"></div>
             </div>
             
             <div className="relative z-10 p-4 max-w-5xl mx-auto flex flex-col items-center mt-[-50px]">
@@ -182,11 +182,11 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onPlanTripClick, onResumeClic
                   className="animate-fade-in-up text-5xl md:text-7xl lg:text-8xl font-extrabold font-serif tracking-tight mb-6 leading-tight"
                   style={{ textShadow: '0 4px 30px rgba(0,0,0,0.5)' }}
                 >
-                    Your World,<br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 to-white">Curated.</span>
+                    Your World,<br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-white">Curated.</span>
                 </h1>
                 <p 
                   className="animate-fade-in-up delay-100 text-lg md:text-2xl max-w-3xl mx-auto mb-10 text-gray-100 leading-relaxed font-light"
-                  style={{ textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}
+                  style={{ textShadow: '0 2px 10px rgba(0,0,0,0.4)' }}
                 >
                     Experience the future of travel planning. Smart itineraries, hidden gems, and seamless booking—all designed around you.
                 </p>
