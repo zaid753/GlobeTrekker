@@ -42,7 +42,7 @@ This project was developed as part of an academic mini project to explore client
 
 ---
 ## 📂 Project Structure
-
+```
 src/
 ├── components/
 ├── services/
@@ -57,6 +57,7 @@ vite.config.ts
 tsconfig.json
 package.json
 README.md
+```
 ---
 ## 🔑 Environment Variables
 
@@ -76,7 +77,7 @@ git clone https://github.com/zaid753/GlobeTrekker.git
 cd GlobeTrekker
 npm install
 npm run dev
-
+```
 ---
 ## Run Locally
 
