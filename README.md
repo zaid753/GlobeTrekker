@@ -1,12 +1,64 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 🌍 GlobeTrekker
 
-# Run and deploy your AI Studio app
+GlobeTrekker is a lightweight, AI-powered travel planning and exploration application built using **React**, **TypeScript**, and **Vite**. It enables users to generate structured, intelligent travel-related content through a clean, fast, and modern user interface.
 
-This contains everything you need to run your app locally.
+---
 
-View your app in AI Studio: https://ai.studio/apps/drive/1EOSRwQ1JRjo1z046dNCt-CKD_xaVaq_k
+## Project Overview
+
+Travel planning often involves scattered information, multiple sources, and time-consuming research. GlobeTrekker simplifies this process by using AI to transform user input into meaningful, well-structured travel content. The focus of this project is to demonstrate how AI can be integrated directly into a modern frontend application to enhance usability and decision-making without introducing unnecessary architectural complexity.
+
+This project was developed as part of an academic mini project to explore client-side AI integration, modern frontend tooling, and clean UI/UX design.
+
+---
+
+## Key Features
+
+- Built with **React + TypeScript**
+- Fast development and optimized bundling using **Vite**
+- AI-powered content generation using **Google Gemini API**
+- Clean, responsive, and user-friendly interface
+- Fully client-side architecture with no server or database
+- Single API dependency for simplicity and maintainability
+
+---
+
+## Technology Stack
+
+- React  
+- TypeScript  
+- Vite  
+- Google Gemini API  
+
+---
+
+## Application Architecture
+
+- Frontend-only application  
+- No backend services  
+- No database integration  
+- API calls handled directly from the client using environment variables  
+- Modular, component-based project structure  
+
+---
+
+## Project Structure
+
+├── components/
+├── services/
+├── data/
+├── hooks/
+├── styles.css
+├── App.tsx
+├── index.tsx
+public/
+├── index.html
+vite.config.ts
+tsconfig.json
+package.json
+README.md
+
+---
 
 ## Run Locally
 
