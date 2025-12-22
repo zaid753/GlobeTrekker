@@ -29,6 +29,8 @@ This project was developed as part of an academic mini project to explore client
 - TypeScript  
 - Vite  
 - Google Gemini API  
+- Firebase
+- Tailwind CSS
 
 ---
 
