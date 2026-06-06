@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import type { Itinerary, TripDetails, Activity, Hotel, FlightInfo, TravelAdvisory, LocationPoint, Restaurant, BookingType, Review } from '../types';
 import { 
     RouteIcon, BedIcon, CarIcon, UtensilsIcon, CloudSunIcon,
@@ -13,12 +14,15 @@ import BookingDetailsModal from './BookingDetailsModal';
 import { checkBookingStatus } from '../services/bookingService';
 import FlightSearchModal from './FlightSearchModal';
 import MapView from './MapView';
+import CommentsSection from './CommentsSection';
 import TravelAlerts from './TravelAlerts';
 import MapWidget from './MapWidget';
 import CurrencyConverter from './CurrencyConverter';
 import ReviewModal from './ReviewModal';
 import BookingManagement from './BookingManagement';
 import { getDummyImageUrl } from '../services/geminiService';
+import { useAuth } from '../hooks/useAuth';
+import { subscribeToPresence, updatePresence, clearPresence } from '../services/dbService';
 
 // Declaration for jspdf loaded via CDN
 declare global {
@@ -79,7 +83,6 @@ const ImageWithFallback: React.FC<{src?: string | null; secondarySrc?: string | 
                 ref={imgRef}
                 src={currentSrc} 
                 alt={alt} 
-                loading="lazy" 
                 className={`w-full h-full object-cover transition-opacity duration-500 ${loaded ? 'opacity-100' : 'opacity-0'}`} 
                 onLoad={handleLoad}
                 onError={handleError} 
@@ -277,6 +280,8 @@ const SectionError: React.FC<{ text: string }> = ({ text }) => (
 );
 
 const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, setItinerary, onSaveTrip, onShare, onEditTrip, onPlanNewTrip, travelAdvisories, mapLocations, guardWithAuth, onOpenChat }) => {
+  const { currentUser } = useAuth();
+  const [activeUsers, setActiveUsers] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>('Summary');
   const [bookingModal, setBookingModal] = useState<{activity: Activity, type: BookingType} | null>(null);
   const [flightSearchModalState, setFlightSearchModalState] = useState<{ activity: Activity; dayIndex: number; activityIndex: number } | null>(null);
@@ -285,6 +290,22 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
   const [filterType, setFilterType] = useState<Activity['type'] | 'All'>('All');
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false); // Visual feedback state
+
+  useEffect(() => {
+     if (itinerary.tripId && currentUser) {
+         const unsubscribe = subscribeToPresence(itinerary.tripId, setActiveUsers);
+         
+         const ping = () => updatePresence(itinerary.tripId!, currentUser.email || 'Anonymous');
+         ping();
+         const interval = setInterval(ping, 30000); // 30s
+         
+         return () => {
+             clearInterval(interval);
+             clearPresence(itinerary.tripId!);
+             unsubscribe();
+         };
+     }
+  }, [itinerary.tripId, currentUser]);
   
   // Drag and Drop Refs
   const dragItem = useRef<{dayIndex: number, index: number} | null>(null);
@@ -298,6 +319,7 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
   // Budget Editing
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [localCostBreakdown, setLocalCostBreakdown] = useState(itinerary.detailed_cost_breakdown);
+  const [localActualCostBreakdown, setLocalActualCostBreakdown] = useState(itinerary.actual_cost_breakdown || { stay: 0, travel: 0, food: 0, activities: 0, miscellaneous: 0 });
 
   // Reviews
   const [reviewModalTarget, setReviewModalTarget] = useState<{ type: 'hotel' | 'restaurant', id: string, name: string, category?: string, index?: number } | null>(null);
@@ -309,7 +331,8 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
 
   useEffect(() => {
       setLocalCostBreakdown(itinerary.detailed_cost_breakdown);
-  }, [itinerary.detailed_cost_breakdown]);
+      setLocalActualCostBreakdown(itinerary.actual_cost_breakdown || { stay: 0, travel: 0, food: 0, activities: 0, miscellaneous: 0 });
+  }, [itinerary.detailed_cost_breakdown, itinerary.actual_cost_breakdown]);
 
   const startEditing = () => {
       setEditTitleValue(itinerary.trip_title);
@@ -336,9 +359,13 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
   };
 
   // Budget Handlers
-  const handleBudgetChange = (key: keyof typeof localCostBreakdown, value: string) => {
+  const handleBudgetChange = (key: keyof typeof localCostBreakdown, value: string, isActual: boolean = false) => {
       const numValue = parseInt(value) || 0;
-      setLocalCostBreakdown(prev => ({ ...prev, [key]: numValue }));
+      if (isActual) {
+          setLocalActualCostBreakdown(prev => ({ ...prev, [key]: numValue }));
+      } else {
+          setLocalCostBreakdown(prev => ({ ...prev, [key]: numValue }));
+      }
   };
 
   const handleBudgetSave = () => {
@@ -346,6 +373,7 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
       setItinerary(prev => prev ? ({ 
           ...prev, 
           detailed_cost_breakdown: localCostBreakdown,
+          actual_cost_breakdown: localActualCostBreakdown,
           total_estimated_cost: newTotal
       }) : null);
       setIsEditingBudget(false);
@@ -918,6 +946,9 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                                                  )}
                                             </div>
                                         </div>
+                                        {itinerary.tripId && (
+                                            <CommentsSection tripId={itinerary.tripId} activityId={key} />
+                                        )}
                                     </div>
                                 </div>
                             );
@@ -1266,14 +1297,19 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
 
       case 'Budget':
         const total = itinerary.total_estimated_cost;
+        const totalActual = Object.values(localActualCostBreakdown).reduce((a, b) => a + b, 0);
         const breakdown = localCostBreakdown;
+        const actualBreakdown = localActualCostBreakdown;
+        
         const budgetItems = [
-            { label: 'stay', display: 'Accommodation', value: breakdown.stay, color: '#3b82f6', tailwindColor: 'bg-blue-500' }, // blue-500
-            { label: 'travel', display: 'Travel', value: breakdown.travel, color: '#a855f7', tailwindColor: 'bg-purple-500' }, // purple-500
-            { label: 'food', display: 'Food', value: breakdown.food, color: '#f97316', tailwindColor: 'bg-orange-500' }, // orange-500
-            { label: 'activities', display: 'Activities', value: breakdown.activities, color: '#10b981', tailwindColor: 'bg-emerald-500' }, // emerald-500
-            { label: 'miscellaneous', display: 'Misc', value: breakdown.miscellaneous, color: '#9ca3af', tailwindColor: 'bg-gray-400' }, // gray-400
+            { label: 'stay', display: 'Accommodation', estimated: breakdown.stay, actual: actualBreakdown.stay, color: '#3b82f6', tailwindColor: 'bg-blue-500' }, 
+            { label: 'travel', display: 'Travel', estimated: breakdown.travel, actual: actualBreakdown.travel, color: '#a855f7', tailwindColor: 'bg-purple-500' }, 
+            { label: 'food', display: 'Food', estimated: breakdown.food, actual: actualBreakdown.food, color: '#f97316', tailwindColor: 'bg-orange-500' }, 
+            { label: 'activities', display: 'Activities', estimated: breakdown.activities, actual: actualBreakdown.activities, color: '#10b981', tailwindColor: 'bg-emerald-500' }, 
+            { label: 'miscellaneous', display: 'Misc', estimated: breakdown.miscellaneous, actual: actualBreakdown.miscellaneous, color: '#9ca3af', tailwindColor: 'bg-gray-400' }, 
         ];
+
+        const donutData = budgetItems.map(item => ({ ...item, value: item.estimated }));
 
         return (
             <div className="max-w-6xl mx-auto space-y-10">
@@ -1284,12 +1320,16 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                             onClick={() => setIsEditingBudget(true)}
                             className="flex items-center gap-2 text-sm font-bold text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors"
                         >
-                            <EditIcon className="h-4 w-4" /> Edit Budget
+                            <EditIcon className="h-4 w-4" /> Track & Edit Budget
                         </button>
                     ) : (
                         <div className="flex items-center gap-3">
                              <button 
-                                onClick={() => { setIsEditingBudget(false); setLocalCostBreakdown(itinerary.detailed_cost_breakdown); }}
+                                onClick={() => { 
+                                    setIsEditingBudget(false); 
+                                    setLocalCostBreakdown(itinerary.detailed_cost_breakdown); 
+                                    setLocalActualCostBreakdown(itinerary.actual_cost_breakdown || { stay: 0, travel: 0, food: 0, activities: 0, miscellaneous: 0 });
+                                }}
                                 className="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                             >
                                 Cancel
@@ -1306,13 +1346,14 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
 
                 {/* Summary Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                     <div className="bg-cyan-50 dark:bg-cyan-900/20 p-6 rounded-2xl text-center border border-cyan-100 dark:border-cyan-800 flex flex-col justify-center shadow-sm">
-                        <p className="text-xs font-bold text-cyan-600 dark:text-cyan-400 uppercase tracking-widest mb-2">Total Estimated Cost</p>
+                     <div className="bg-cyan-50 dark:bg-cyan-900/20 p-6 rounded-2xl text-center border border-cyan-100 dark:border-cyan-800 flex flex-col justify-center shadow-sm relative">
+                        <p className="text-xs font-bold text-cyan-600 dark:text-cyan-400 uppercase tracking-widest mb-2">Estimated Cost</p>
                         <p className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">{formatCurrency(total)}</p>
-                        {details.budget && (
-                             <div className={`mt-3 inline-block px-3 py-1 rounded-full text-xs font-bold mx-auto ${total <= details.budget ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300'}`}>
-                                {total <= details.budget ? 'Within Budget' : `+${formatCurrency(total - details.budget)} Over`}
-                            </div>
+                        {totalActual > 0 && (
+                             <div className="mt-3 inline-flex flex-col items-center">
+                                 <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Actual Spend</p>
+                                 <p className={`text-lg font-bold ${totalActual > total ? 'text-red-500' : 'text-green-500'}`}>{formatCurrency(totalActual)}</p>
+                             </div>
                         )}
                     </div>
                     
@@ -1332,36 +1373,69 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                 <div className="grid md:grid-cols-2 gap-10 items-center bg-white dark:bg-gray-800 p-8 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
                     {/* Interactive Donut Chart */}
                     <div className="flex justify-center items-center w-full">
-                        <InteractiveDonutChart data={budgetItems} total={total} formatCurrency={formatCurrency} />
+                        <InteractiveDonutChart data={donutData} total={total} formatCurrency={formatCurrency} />
                     </div>
 
                     {/* Breakdown List */}
                     <div className="space-y-6">
-                        <h4 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4 border-b dark:border-gray-700 pb-2 font-serif">Expense Breakdown</h4>
+                        <h4 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4 border-b dark:border-gray-700 pb-2 font-serif flex items-center justify-between">
+                            <span>Expense Breakdown</span>
+                        </h4>
                         <div className="space-y-4">
+                            {/* Headers for columns */}
+                            {isEditingBudget && (
+                                <div className="flex justify-between text-xs font-bold text-gray-400 uppercase mb-2 pl-28">
+                                    <span className="w-24 text-right">Est. (₹)</span>
+                                    <span className="w-24 text-right">Actual (₹)</span>
+                                </div>
+                            )}
+
                             {budgetItems.map((item) => (
-                                <div key={item.label}>
-                                    <div className="flex justify-between text-sm font-medium mb-1.5 items-center">
+                                <div key={item.label} className="border-b border-gray-50 dark:border-gray-700/50 pb-3">
+                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-sm font-medium gap-2">
                                         <span className="text-gray-600 dark:text-gray-300 flex items-center gap-3">
                                             <span className={`w-3 h-3 rounded-sm shadow-sm ${item.tailwindColor}`}></span>
                                             {item.display}
                                         </span>
                                         {isEditingBudget ? (
-                                            <div className="flex items-center relative">
-                                                <span className="absolute left-2 text-gray-400 text-xs">₹</span>
-                                                <input 
-                                                    type="number" 
-                                                    value={item.value} 
-                                                    onChange={(e) => handleBudgetChange(item.label as any, e.target.value)}
-                                                    className="w-24 pl-5 py-1 text-right border rounded-md text-sm font-bold text-gray-900 dark:text-white dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
-                                                />
+                                            <div className="flex items-center gap-3 self-end sm:self-auto">
+                                                <div className="relative">
+                                                    <input 
+                                                        type="number" 
+                                                        value={item.estimated} 
+                                                        onChange={(e) => handleBudgetChange(item.label as any, e.target.value, false)}
+                                                        className="w-24 px-2 py-1 text-right border rounded-md text-sm font-bold text-gray-900 border-gray-300 dark:text-white dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
+                                                        placeholder="Est."
+                                                    />
+                                                </div>
+                                                <div className="relative">
+                                                    <input 
+                                                        type="number" 
+                                                        value={item.actual} 
+                                                        onChange={(e) => handleBudgetChange(item.label as any, e.target.value, true)}
+                                                        className="w-24 px-2 py-1 text-right border rounded-md text-sm font-bold text-cyan-700 border-cyan-300 bg-cyan-50 dark:text-cyan-300 dark:bg-cyan-900/30 dark:border-cyan-700 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
+                                                        placeholder="Actual"
+                                                    />
+                                                </div>
                                             </div>
                                         ) : (
-                                            <span className="text-gray-900 dark:text-white font-bold">{formatCurrency(item.value)}</span>
+                                            <div className="flex items-center gap-4 self-end sm:self-auto">
+                                                <span className="text-gray-900 dark:text-white font-bold">{formatCurrency(item.estimated)}</span>
+                                                {item.actual > 0 && (
+                                                    <span className="text-xs font-bold px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                                        Actual: {formatCurrency(item.actual)}
+                                                    </span>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
-                                    <div className="flex justify-between items-center text-xs text-gray-400 pl-6">
-                                        <span>{total > 0 ? Math.round((item.value / total) * 100) : 0}% of total</span>
+                                    <div className="flex justify-between items-center text-xs mt-1 pl-6">
+                                        <span className="text-gray-400">{total > 0 ? Math.round((item.estimated / total) * 100) : 0}% of estimated total</span>
+                                        {item.actual > 0 && !isEditingBudget && (
+                                            <span className={`font-bold ${item.actual > item.estimated ? 'text-red-500' : 'text-green-500'}`}>
+                                                {item.actual > item.estimated ? '+' : ''}{formatCurrency(item.actual - item.estimated)}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -1421,22 +1495,42 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
                     <span className="flex items-center gap-1"><UserIcon className="h-4 w-4"/> {details.travellers} Travelers</span>
                 </div>
             </div>
-            <div className="flex flex-wrap gap-3 w-full md:w-auto">
-                <button onClick={handleExportPDF} disabled={isExporting} className="flex-1 md:flex-none bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 px-4 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 disabled:opacity-60 disabled:cursor-wait">
-                    {isExporting ? <SpinnerIcon className="h-5 w-5 animate-spin"/> : <DownloadIcon className="h-5 w-5"/>} 
-                    PDF
-                </button>
-                <button 
-                    onClick={handleSaveClick} 
-                    disabled={isSaving}
-                    className="flex-1 md:flex-none bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 px-5 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                    {isSaving ? <SpinnerIcon className="h-5 w-5 animate-spin" /> : <CheckCircleIcon className="h-5 w-5"/>}
-                    {isSaving ? 'Saving...' : 'Save'}
-                </button>
-                <button onClick={onShare} className="flex-1 md:flex-none bg-cyan-600 hover:bg-cyan-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-md shadow-cyan-200 dark:shadow-none transition-all active:scale-95">
-                    <ShareIcon className="h-5 w-5"/> Share
-                </button>
+            
+            <div className="flex flex-col md:flex-row items-center gap-6 w-full md:w-auto mt-4 md:mt-0">
+                {activeUsers.length >= 1 && (
+                     <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 rounded-full border border-gray-100 dark:border-gray-700">
+                         <div className="relative flex h-3 w-3">
+                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                           <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                         </div>
+                         <span className="text-xs font-bold text-gray-600 dark:text-gray-300">Live:</span>
+                         <div className="flex -space-x-2">
+                             {activeUsers.map(u => (
+                                 <div key={u.uid} className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-950 bg-cyan-100 dark:bg-cyan-800 flex items-center justify-center shadow-sm" title={u.email}>
+                                     <span className="text-xs font-bold text-cyan-800 dark:text-cyan-200">{u.email.charAt(0).toUpperCase()}</span>
+                                 </div>
+                             ))}
+                         </div>
+                     </div>
+                )}
+                
+                <div className="flex flex-wrap gap-3 w-full md:w-auto justify-end">
+                    <button onClick={handleExportPDF} disabled={isExporting} className="flex-1 md:flex-none bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 px-4 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 disabled:opacity-60 disabled:cursor-wait">
+                        {isExporting ? <SpinnerIcon className="h-5 w-5 animate-spin"/> : <DownloadIcon className="h-5 w-5"/>} 
+                        PDF
+                    </button>
+                    <button 
+                        onClick={handleSaveClick} 
+                        disabled={isSaving}
+                        className="flex-1 md:flex-none bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 px-5 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                        {isSaving ? <SpinnerIcon className="h-5 w-5 animate-spin" /> : <CheckCircleIcon className="h-5 w-5"/>}
+                        {isSaving ? 'Saving...' : 'Save'}
+                    </button>
+                    <button onClick={onShare} className="flex-1 md:flex-none bg-cyan-600 hover:bg-cyan-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-md shadow-cyan-200 dark:shadow-none transition-all active:scale-95">
+                        <ShareIcon className="h-5 w-5"/> Share
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -1454,8 +1548,18 @@ const ItineraryReport: React.FC<ItineraryReportProps> = ({ itinerary, details, s
         </div>
 
         {/* Content Area */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-6 md:p-8 min-h-[60vh] animate-fade-in">
-            {renderContent()}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-6 md:p-8 min-h-[60vh]">
+            <AnimatePresence mode="wait">
+                <motion.div
+                    key={activeTab}
+                    initial={{ opacity: 0, scale: 0.98, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.98, y: -10 }}
+                    transition={{ duration: 0.25, ease: "easeOut" }}
+                >
+                    {renderContent()}
+                </motion.div>
+            </AnimatePresence>
         </div>
         
         {/* Modals */}

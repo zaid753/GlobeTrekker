@@ -1,0 +1,45 @@
+{
+  "entities": {
+    "Trip": {
+      "title": "Trip",
+      "description": "A saved travel itinerary representing a trip",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "tripTitle": { "type": "string" },
+        "details": { "type": "object" },
+        "itinerary": { "type": "object" },
+        "isPublic": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "tripTitle", "details", "itinerary", "createdAt", "updatedAt"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "User comment on a specific activity within a trip",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tripId": { "type": "string" },
+        "activityId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "tripId", "activityId", "userId", "userEmail", "text", "createdAt"]
+    }
+  },
+  "firestore": {
+    "trips": {
+      "schema": { "$ref": "#/entities/Trip" },
+      "description": "Store user itineraries and shared trips"
+    },
+    "trips/{tripId}/comments": {
+      "schema": { "$ref": "#/entities/Comment" },
+      "description": "Comments left by users on specific activities of a trip"
+    }
+  }
+}

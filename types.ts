@@ -132,11 +132,13 @@ export interface WeatherForecast {
 }
 
 export interface Itinerary {
+  tripId?: string;
   trip_title: string;
   total_estimated_cost: number;
   currency: string;
   trip_summary: TripSummary;
   detailed_cost_breakdown: DetailedCostBreakdown;
+  actual_cost_breakdown?: DetailedCostBreakdown;
   schedule: DayPlan[];
   accommodation_recommendations?: AccommodationRecommendations;
   transportation_options?: Transportation;

@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import type { TripDetails, UserPreferences } from '../types';
 import { 
   GlobeIcon, CalendarIcon, UsersIcon, ArrowLeftIcon, 
@@ -278,8 +279,10 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
             </nav>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          <div style={{ display: currentStep === 1 ? 'block' : 'none' }}>
+        <form onSubmit={handleSubmit} className="space-y-8 min-h-[400px]">
+          <AnimatePresence mode="wait">
+          {currentStep === 1 && (
+            <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
             <div className="p-4 md:p-6 space-y-6 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="col-span-1">
@@ -398,9 +401,11 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
                     </div>
                 </div>
             </div>
-          </div>
+            </motion.div>
+          )}
           
-          <div style={{ display: currentStep === 2 ? 'block' : 'none' }}>
+          {currentStep === 2 && (
+            <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
             <div className="p-4 md:p-6 space-y-6 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
                 <div className="relative">
                     <UsersIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -424,9 +429,11 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
                     </div>
                 </div>
             </div>
-          </div>
+            </motion.div>
+          )}
 
-          <div style={{ display: currentStep === 3 ? 'block' : 'none' }}>
+          {currentStep === 3 && (
+            <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
             <div className="p-4 md:p-6 space-y-6 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
                  <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">₹</span>
@@ -475,7 +482,9 @@ const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading, initialDetails
                     </div>
                 </div>
             </div>
-          </div>
+            </motion.div>
+          )}
+          </AnimatePresence>
           
           <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
             <button

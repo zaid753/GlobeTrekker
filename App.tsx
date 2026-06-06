@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import Navbar from './components/Navbar';
 import TripForm from './components/TripForm';
 import { 
@@ -65,6 +66,13 @@ const processWithConcurrency = async <T,>(
   await Promise.all(Array.from({ length: concurrency }, worker));
 };
 
+const pageTransition = {
+  initial: { opacity: 0, y: 15, scale: 0.98 },
+  animate: { opacity: 1, y: 0, scale: 1 },
+  exit: { opacity: 0, y: -15, scale: 0.98 },
+  transition: { duration: 0.4, ease: "easeOut" }
+};
+
 function App() {
   const [tripDetails, setTripDetails] = useState<TripDetails | null>(null);
   const [itinerary, setItinerary] = useState<Itinerary | null>(null);
@@ -98,7 +106,7 @@ function App() {
   }, [currentUser]);
 
   const generateImagesParallel = useCallback(async (itineraryForImages: Itinerary, detailsForImages: TripDetails) => {
-    await processWithConcurrency(itineraryForImages.schedule, 3, async (day) => {
+    await processWithConcurrency(itineraryForImages.schedule, 2, async (day) => {
         try {
             const imageUrl = await generateImageForActivity(`${day.title} in ${detailsForImages.destination}`, 'banner');
             setItinerary(current => {
@@ -121,7 +129,7 @@ function App() {
   const generateHotelImages = useCallback(async (recommendations: AccommodationRecommendations, destination: string) => {
       const categories: ('budget' | 'standard' | 'luxury')[] = ['budget', 'standard', 'luxury'];
       const allHotels = categories.flatMap(cat => (recommendations[cat] || []).map((hotel, index) => ({ cat, hotel, index })));
-      await processWithConcurrency(allHotels, 3, async ({ cat, hotel, index }) => {
+      await processWithConcurrency(allHotels, 2, async ({ cat, hotel, index }) => {
           try {
                const prompt = `${hotel.name} hotel in ${destination}`;
                const url = await generateImageForActivity(prompt, 'hotel');
@@ -153,7 +161,7 @@ function App() {
   const generateRestaurantImages = useCallback(async (recommendations: FoodRecommendations, destination: string) => {
       if (!recommendations.restaurants) return;
       const allRestaurants = recommendations.restaurants.map((restaurant, index) => ({ restaurant, index }));
-      await processWithConcurrency(allRestaurants, 3, async ({ restaurant, index }) => {
+      await processWithConcurrency(allRestaurants, 2, async ({ restaurant, index }) => {
           try {
               const dish = restaurant.must_try_dishes[0] || 'signature dish';
               const prompt = `${dish} at ${restaurant.name} in ${destination}`;
@@ -233,6 +241,59 @@ function App() {
   }, []);
   
   useEffect(() => {
+     const checkUpcomingTrips = () => {
+         if (!currentUserRef.current) return;
+         const savedTrips = JSON.parse(localStorage.getItem(`savedTrips_${currentUserRef.current.email}`) || '[]');
+         const now = new Date();
+         const threeDaysFromNow = new Date();
+         threeDaysFromNow.setDate(now.getDate() + 3);
+
+         savedTrips.forEach((trip: any) => {
+             if (trip.details && trip.details.startDate) {
+                 const tripStart = new Date(trip.details.startDate);
+                 if (tripStart > now && tripStart <= threeDaysFromNow) {
+                     const notifiedKey = `notified_trip_${trip.details.destination}_${trip.details.startDate}`;
+                     if (!localStorage.getItem(notifiedKey)) {
+                         const sendNotification = () => {
+                             new Notification('Upcoming Trip!', {
+                                 body: `Your trip to ${trip.details.destination} starts in less than 3 days!`,
+                             });
+                             localStorage.setItem(notifiedKey, 'true');
+                         };
+
+                         if (Notification.permission === 'granted') {
+                             sendNotification();
+                         } else if (Notification.permission !== 'denied') {
+                             Notification.requestPermission().then(permission => {
+                                 if (permission === 'granted') sendNotification();
+                             });
+                         }
+                     }
+                 }
+             }
+         });
+     };
+     
+     const timeoutId = setTimeout(checkUpcomingTrips, 5000);
+     return () => clearTimeout(timeoutId);
+  }, [currentUser]);
+
+  useEffect(() => {
+     const handleOffline = () => setToast({ message: 'You are currently offline. Using cached data.', type: 'error' });
+     const handleOnline = () => setToast({ message: 'Back online!', type: 'success' });
+     
+     window.addEventListener('offline', handleOffline);
+     window.addEventListener('online', handleOnline);
+     
+     if (!navigator.onLine) handleOffline();
+
+     return () => {
+         window.removeEventListener('offline', handleOffline);
+         window.removeEventListener('online', handleOnline);
+     };
+  }, []);
+  
+  useEffect(() => {
     if (isAuthenticated && pendingAction) { pendingAction(); setPendingAction(null); }
   }, [isAuthenticated, pendingAction]);
 
@@ -243,22 +304,36 @@ function App() {
 
   useEffect(() => {
     const loadTripAndGenerateImages = (details: TripDetails, savedItinerary: Itinerary, tripId: string) => {
-        setTripDetails(details); setItinerary(savedItinerary); setCurrentTripId(tripId);
+        setTripDetails(details); setItinerary({ ...savedItinerary, tripId }); setCurrentTripId(tripId);
         generateImagesParallel(savedItinerary, details);
     };
-    const urlParams = new URLSearchParams(window.location.search);
-    const tripId = urlParams.get('tripId');
-    if (tripId) {
-        try {
-            const sharedTripJSON = localStorage.getItem(`trip_${tripId}`);
-            if (sharedTripJSON) {
-                const { details, itinerary: sharedItinerary } = JSON.parse(sharedTripJSON);
-                loadTripAndGenerateImages(details, sharedItinerary, tripId);
-                window.history.replaceState({}, document.title, window.location.pathname);
-                navigateTo('results');
-            }
-        } catch (e) { console.error(e); }
-    }
+    const loadSharedTrip = async () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tripId = urlParams.get('tripId');
+        if (tripId) {
+            try {
+                const { getTripFromRemote } = await import('./services/dbService');
+                const pTrip = await getTripFromRemote(tripId);
+                if (pTrip) {
+                    loadTripAndGenerateImages(pTrip.details, pTrip.itinerary, tripId);
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    navigateTo('results');
+                    return;
+                }
+            } catch(e) { console.error("Firebase fetch failed", e); }
+            
+            try {
+                const sharedTripJSON = localStorage.getItem(`trip_${tripId}`);
+                if (sharedTripJSON) {
+                    const { details, itinerary: sharedItinerary } = JSON.parse(sharedTripJSON);
+                    loadTripAndGenerateImages(details, sharedItinerary, tripId);
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    navigateTo('results');
+                }
+            } catch (e) { console.error(e); }
+        }
+    };
+    loadSharedTrip();
   }, [generateImagesParallel, navigateTo]);
 
   useEffect(() => {
@@ -305,7 +380,7 @@ function App() {
     }
   }, [itinerary, tripDetails, currentTripId, isCreatingNewTrip]);
 
-  const handleSaveTrip = () => {
+  const handleSaveTrip = async () => {
       if (!currentUser || !tripDetails || !itinerary) return;
       const { accommodationLoading, transportationLoading, foodLoading, weatherLoading, ...restOfItinerary } = itinerary;
       const cleanSchedule = restOfItinerary.schedule.map(({ imageUrl, imageLoading, ...day }) => day);
@@ -325,6 +400,21 @@ function App() {
       const storableItinerary = { ...restOfItinerary, schedule: cleanSchedule, accommodation_recommendations: cleanAccommodation || restOfItinerary.accommodation_recommendations, food_recommendations: cleanFood || restOfItinerary.food_recommendations };
       const storageKey = `savedTrips_${currentUser.email}`;
       const tripToSave: SavedTrip = { details: tripDetails, itinerary: storableItinerary as Itinerary };
+      
+      try {
+          const { saveTripToRemote } = await import('./services/dbService');
+          if (!itinerary.tripId && !currentTripId) {
+             const newId = await saveTripToRemote(tripToSave);
+             if (newId) {
+                 tripToSave.itinerary.tripId = newId;
+                 setCurrentTripId(newId);
+                 setItinerary(prev => prev ? { ...prev, tripId: newId } : null);
+             }
+          }
+      } catch (e) {
+          console.error("Failed to save remote trip", e);
+      }
+
       try {
           const existingTripsJson = localStorage.getItem(storageKey);
           let existingTrips: SavedTrip[] = existingTripsJson ? JSON.parse(existingTripsJson) : [];
@@ -367,22 +457,28 @@ function App() {
       const itineraryWithLoadingImages = { ...coreItinerary, schedule: coreItinerary.schedule.map(day => ({ ...day, imageUrl: getDummyImageUrl(details.destination, day.title, day.day, 'banner'), imageLoading: true })) };
       setItinerary(prev => ({ ...prev!, ...itineraryWithLoadingImages, accommodationLoading: true, transportationLoading: true, foodLoading: true, weatherLoading: true }));
       generateImagesParallel(itineraryWithLoadingImages, details);
-      generateAccommodationRecommendations(details).then(recs => {
-           if (recs) {
-                const recsWithImages = { ...recs, budget: recs.budget.map(h => ({ ...h, imageLoading: true })), standard: recs.standard.map(h => ({ ...h, imageLoading: true })), luxury: recs.luxury.map(h => ({ ...h, imageLoading: true })) };
-                setItinerary(prev => prev ? ({ ...prev, accommodation_recommendations: recsWithImages, accommodationLoading: false }) : null);
-                generateHotelImages(recsWithImages, details.destination);
-           } else setItinerary(prev => prev ? ({ ...prev, accommodationLoading: false }) : null);
-      });
-      generateTransportationOptions(details).then(trans => setItinerary(prev => prev ? ({ ...prev, transportation_options: trans || undefined, transportationLoading: false }) : null));
-      generateFoodRecommendations(details).then(food => {
-           if (food) {
+      // Run background API requests sequentially to avoid rate limits
+      (async () => {
+          const recs = await generateAccommodationRecommendations(details);
+          if (recs) {
+               const recsWithImages = { ...recs, budget: recs.budget.map(h => ({ ...h, imageLoading: true })), standard: recs.standard.map(h => ({ ...h, imageLoading: true })), luxury: recs.luxury.map(h => ({ ...h, imageLoading: true })) };
+               setItinerary(prev => prev ? ({ ...prev, accommodation_recommendations: recsWithImages, accommodationLoading: false }) : null);
+               generateHotelImages(recsWithImages, details.destination);
+          } else setItinerary(prev => prev ? ({ ...prev, accommodationLoading: false }) : null);
+
+          const trans = await generateTransportationOptions(details);
+          setItinerary(prev => prev ? ({ ...prev, transportation_options: trans || undefined, transportationLoading: false }) : null);
+
+          const food = await generateFoodRecommendations(details);
+          if (food) {
                const foodWithImages = { ...food, restaurants: food.restaurants.map(r => ({ ...r, imageLoading: true })) };
                setItinerary(prev => prev ? ({ ...prev, food_recommendations: foodWithImages, foodLoading: false }) : null);
                generateRestaurantImages(foodWithImages, details.destination);
-           } else setItinerary(prev => prev ? ({ ...prev, foodLoading: false }) : null);
-      });
-      generateWeatherForecast(details).then(weather => setItinerary(prev => prev ? ({ ...prev, weather_forecast: weather || undefined, weatherLoading: false }) : null));
+          } else setItinerary(prev => prev ? ({ ...prev, foodLoading: false }) : null);
+
+          const weather = await generateWeatherForecast(details);
+          setItinerary(prev => prev ? ({ ...prev, weather_forecast: weather || undefined, weatherLoading: false }) : null);
+      })();
       getTravelAdvisories(details.destination, details.startDate, details.endDate).then(setTravelAdvisories);
       extractLocationsFromSchedule(coreItinerary.schedule, details.destination).then(setMapLocations);
     } catch (err: any) { setError(err.message || "Failed to generate itinerary."); setItinerary(null); } finally { setIsLoading(false); }
@@ -393,23 +489,37 @@ function App() {
         {view !== 'admin' && (
             <Navbar isAuthenticated={isAuthenticated} userEmail={currentUser?.email || null} onLoginClick={() => { setAuthView('login'); setIsAuthModalOpen(true); }} onSignUpClick={() => { setAuthView('signup'); setIsAuthModalOpen(true); }} onLogout={logout} onProfileClick={() => navigateTo('profile')} onNavigate={(id) => { if (view !== 'hero') navigateTo('hero'); setTimeout(() => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth' }); }, 100); }} currentView={view} />
         )}
+        <AnimatePresence mode="wait">
         {view === 'hero' && (
-            <HeroSection onPlanTripClick={() => guardWithAuth(() => navigateTo('form'))} onResumeClick={() => guardWithAuth(() => { const savedItinerary = localStorage.getItem('lastItinerary'); const savedDetails = localStorage.getItem('lastTripDetails'); if (savedItinerary && savedDetails) { try { setItinerary(JSON.parse(savedItinerary)); setTripDetails(JSON.parse(savedDetails)); navigateTo('results'); } catch (e) { setToast({ message: "Resumption failed.", type: 'error' }); } } else setToast({ message: "No saved journey found.", type: 'error' }); })} hasResumableTrip={hasResumableTrip} onAdminLogin={() => navigateTo('admin')} />
+            <motion.div key="hero" {...pageTransition}>
+              <HeroSection onPlanTripClick={() => guardWithAuth(() => navigateTo('form'))} onResumeClick={() => guardWithAuth(() => { const savedItinerary = localStorage.getItem('lastItinerary'); const savedDetails = localStorage.getItem('lastTripDetails'); if (savedItinerary && savedDetails) { try { setItinerary(JSON.parse(savedItinerary)); setTripDetails(JSON.parse(savedDetails)); navigateTo('results'); } catch (e) { setToast({ message: "Resumption failed.", type: 'error' }); } } else setToast({ message: "No saved journey found.", type: 'error' }); })} hasResumableTrip={hasResumableTrip} onAdminLogin={() => navigateTo('admin')} />
+            </motion.div>
         )}
         {view === 'form' && (
-            <TripForm onSubmit={handleFormSubmit} isLoading={isLoading} initialDetails={formInitialData} onBack={handleBack} canGoBack={true} userPreferences={userPreferences} />
+            <motion.div key="form" {...pageTransition}>
+              <TripForm onSubmit={handleFormSubmit} isLoading={isLoading} initialDetails={formInitialData} onBack={handleBack} canGoBack={true} userPreferences={userPreferences} />
+            </motion.div>
         )}
         {view === 'results' && (
-            isLoading ? ( <LoadingState message={currentLoadingMessage} /> ) : (itinerary && tripDetails) ? (
-                <ItineraryReport itinerary={itinerary} details={tripDetails} setItinerary={setItinerary} onSaveTrip={() => guardWithAuth(handleSaveTrip)} onShare={() => setIsShareModalOpen(true)} onEditTrip={() => { setFormInitialData(tripDetails); navigateTo('form'); }} onPlanNewTrip={() => { setFormInitialData(null); setIsCreatingNewTrip(true); navigateTo('form'); }} travelAdvisories={travelAdvisories} mapLocations={mapLocations} guardWithAuth={guardWithAuth} onOpenChat={() => setIsChatOpen(true)} />
-            ) : (
-                <div className="pt-28 text-center text-red-500"><p>{error || "Something went wrong."}</p><button onClick={() => navigateTo('hero')} className="mt-4 text-cyan-600 hover:underline">Go Home</button></div>
-            )
+            <motion.div key="results" {...pageTransition}>
+              {isLoading ? ( <LoadingState message={currentLoadingMessage} /> ) : (itinerary && tripDetails) ? (
+                  <ItineraryReport itinerary={itinerary} details={tripDetails} setItinerary={setItinerary} onSaveTrip={() => guardWithAuth(handleSaveTrip)} onShare={() => setIsShareModalOpen(true)} onEditTrip={() => { setFormInitialData(tripDetails); navigateTo('form'); }} onPlanNewTrip={() => { setFormInitialData(null); setIsCreatingNewTrip(true); navigateTo('form'); }} travelAdvisories={travelAdvisories} mapLocations={mapLocations} guardWithAuth={guardWithAuth} onOpenChat={() => setIsChatOpen(true)} />
+              ) : (
+                  <div className="pt-28 text-center text-red-500"><p>{error || "Something went wrong."}</p><button onClick={() => navigateTo('hero')} className="mt-4 text-cyan-600 hover:underline">Go Home</button></div>
+              )}
+            </motion.div>
         )}
         {view === 'profile' && currentUser && (
-            <UserProfilePage user={currentUser} onLoadTrip={(trip, index) => { setTripDetails(trip.details); setItinerary(trip.itinerary); setEditingTripIndex(index); navigateTo('results'); }} onPlanNewTrip={() => { setFormInitialData(null); setIsCreatingNewTrip(true); navigateTo('form'); }} onBack={handleBack} canGoBack={true} onEditTrip={(trip) => { setFormInitialData(trip.details); navigateTo('form'); }} preferences={userPreferences} onPreferencesChange={(prefs) => { setUserPreferences(prefs); localStorage.setItem(`userPrefs_${currentUser.email}`, JSON.stringify(prefs)); }} />
+            <motion.div key="profile" {...pageTransition}>
+              <UserProfilePage user={currentUser} onLoadTrip={(trip, index) => { setTripDetails(trip.details); setItinerary(trip.itinerary); setEditingTripIndex(index); navigateTo('results'); }} onPlanNewTrip={() => { setFormInitialData(null); setIsCreatingNewTrip(true); navigateTo('form'); }} onBack={handleBack} canGoBack={true} onEditTrip={(trip) => { setFormInitialData(trip.details); navigateTo('form'); }} preferences={userPreferences} onPreferencesChange={(prefs) => { setUserPreferences(prefs); localStorage.setItem(`userPrefs_${currentUser.email}`, JSON.stringify(prefs)); }} />
+            </motion.div>
         )}
-        {view === 'admin' && <AdminPanel onExit={() => navigateTo('hero')} />}
+        {view === 'admin' && (
+            <motion.div key="admin" {...pageTransition}>
+              <AdminPanel onExit={() => navigateTo('hero')} />
+            </motion.div>
+        )}
+        </AnimatePresence>
         <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} initialView={authView} />
         {itinerary && tripDetails && ( <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} itinerary={itinerary} details={tripDetails} /> )}
         {toast && ( <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} /> )}

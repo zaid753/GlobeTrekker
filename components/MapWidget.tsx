@@ -119,7 +119,6 @@ const MapWidget: React.FC<MapWidgetProps> = ({ destination, initialWeather }) =>
                     height="100%"
                     style={{ border: 0 }}
                     allowFullScreen={false}
-                    loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
                     title={`Map of ${destination}`}
                 ></iframe>

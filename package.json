@@ -9,10 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
     "@google/genai": "^1.28.0",
-    "firebase": "^12.6.0"
+    "firebase": "^12.14.0",
+    "motion": "^12.40.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

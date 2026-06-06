@@ -68,7 +68,19 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, itinerary, det
         });
     };
 
-    const handleGenerateLink = () => {
+    const handleGenerateLink = async () => {
+        if (itinerary.tripId) {
+            try {
+                const { updateTripToPublic } = await import('../services/dbService');
+                await updateTripToPublic(itinerary.tripId);
+                const shareUrl = `${window.location.origin}${window.location.pathname}?tripId=${itinerary.tripId}`;
+                setGeneratedLink(shareUrl);
+                return;
+            } catch (e) {
+                console.error("Failed to make trip public remote", e);
+            }
+        }
+
         const filteredItinerary: Itinerary = JSON.parse(JSON.stringify(itinerary));
 
         if (!selections.summary) {

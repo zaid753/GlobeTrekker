@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { motion } from 'motion/react';
 import type { SavedTrip } from '../types';
 import { CalendarIcon, GlobeIcon, TrashIcon, ArrowRightIcon, EditIcon } from './icons';
 import { getDummyImageUrl } from '../services/geminiService';
@@ -16,13 +17,18 @@ const SavedTripCard: React.FC<SavedTripCardProps> = ({ trip, onLoad, onDelete, o
     const coverImage = getDummyImageUrl(details.destination, "iconic landmark", 1, 'banner');
 
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md dark:border dark:border-gray-700 overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-2xl dark:hover:border-cyan-500/50 group flex flex-col h-full">
+        <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            whileHover={{ scale: 1.05 }}
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-md dark:border dark:border-gray-700 overflow-hidden transition-shadow duration-300 hover:shadow-2xl dark:hover:border-cyan-500/50 group flex flex-col h-full"
+        >
             <div className="relative h-40 overflow-hidden">
                 <img 
                     src={coverImage} 
                     alt={details.destination} 
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    loading="lazy"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-70"></div>
                 <div className="absolute bottom-3 left-4 right-4">
@@ -67,7 +73,7 @@ const SavedTripCard: React.FC<SavedTripCardProps> = ({ trip, onLoad, onDelete, o
                     </div>
                 </div>
             </div>
-        </div>
+        </motion.div>
     );
 };
 

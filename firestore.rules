@@ -1,0 +1,94 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() { return request.auth != null; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function existing() { return resource.data; }
+    function incoming() { return request.resource.data; }
+
+    function isValidTrip(data) {
+      return data.keys().hasAll(['userId', 'tripTitle', 'details', 'itinerary', 'createdAt', 'updatedAt'])
+        && data.userId == request.auth.uid
+        && data.tripTitle is string
+        && data.tripTitle.size() > 0 && data.tripTitle.size() <= 200
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    match /trips/{tripId} {
+      allow read: if isValidId(tripId) && (existing().isPublic == true || existing().userId == request.auth.uid || !isSignedIn());
+      allow create: if isSignedIn() 
+        && isValidId(tripId) 
+        && isValidTrip(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      
+      allow update: if isSignedIn() 
+        && isValidId(tripId) 
+        && existing().userId == request.auth.uid
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && isValidTrip(incoming());
+      
+      allow delete: if isSignedIn() 
+        && isValidId(tripId) 
+        && existing().userId == request.auth.uid;
+
+      match /comments/{commentId} {
+        // Anyone who can read the trip can list/read its comments
+        function isTripVisible() {
+          let trip = get(/databases/$(database)/documents/trips/$(tripId)).data;
+          return trip.isPublic == true || trip.userId == request.auth.uid;
+        }
+
+        function isValidComment(data) {
+          return data.keys().hasAll(['tripId', 'activityId', 'userId', 'userEmail', 'text', 'createdAt'])
+            && data.tripId == tripId
+            && data.activityId is string
+            && data.userId == request.auth.uid
+            && data.userEmail is string
+            && data.text is string
+            && data.text.size() > 0 && data.text.size() <= 1000
+            && data.createdAt is timestamp;
+        }
+
+        allow list, get: if isValidId(tripId) && isValidId(commentId); // Simplified for sharing
+        
+        allow create: if isSignedIn() 
+          && isValidId(tripId) 
+          && isValidId(commentId)
+          && isValidComment(incoming())
+          && incoming().createdAt == request.time;
+          
+        allow update: if isSignedIn()
+          && isValidId(tripId)
+          && isValidId(commentId)
+          && existing().userId == request.auth.uid
+          && incoming().userId == existing().userId
+          && incoming().tripId == existing().tripId
+          && incoming().activityId == existing().activityId
+          && incoming().createdAt == existing().createdAt
+          && isValidComment(incoming());
+          
+        allow delete: if isSignedIn()
+          && isValidId(tripId)
+          && isValidId(commentId)
+          && existing().userId == request.auth.uid;
+      }
+
+      match /presence/{uid} {
+        allow read: if isValidId(tripId) && isValidId(uid);
+        allow write: if isSignedIn() && uid == request.auth.uid;
+      }
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion } from 'motion/react';
 import { ArrowRightIcon, UndoIcon, SparklesIcon, MapIcon, PiggyBankIcon, CalendarIcon, GlobeIcon, UserIcon, CheckCircleIcon, SendIcon, MapPinIcon, SpinnerIcon, TwitterIcon, FacebookIcon, LinkedinIcon, InstagramIcon, LockIcon, XCircleIcon } from './icons';
 
 interface HeroSectionProps {
@@ -81,7 +82,6 @@ const LazyImage = ({ src, alt, className }: { src: string, alt: string, classNam
                     <img 
                         src={currentSrc} 
                         alt={alt} 
-                        loading="lazy"
                         onLoad={() => setLoaded(true)}
                         onError={handleError}
                         className={`w-full h-full object-cover transition-all duration-1000 ease-out ${loaded ? 'opacity-100 scale-100 blur-0' : 'opacity-0 scale-110 blur-md'}`} 
@@ -209,12 +209,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onPlanTripClick, onResumeClic
                 </div>
             </div>
             
-            {/* Scroll Indicator */}
-            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce cursor-pointer opacity-80 hover:opacity-100 transition-opacity" onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}>
-                <div className="w-6 h-10 border-2 border-white/50 rounded-full flex justify-center pt-2">
-                    <div className="w-1 h-2 bg-white rounded-full animate-pulse"></div>
-                </div>
-            </div>
+            
         </div>
 
         {/* Features Grid */}

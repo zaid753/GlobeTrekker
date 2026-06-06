@@ -11,16 +11,26 @@ const ai = new GoogleGenAI({ apiKey });
 const imageCache = new Map<string, string>();
 
 // --- Retry Logic ---
-const retryWithBackoff = async <T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> => {
+const retryWithBackoff = async <T>(fn: () => Promise<T>, retries = 3, delay = 2000): Promise<T> => {
     try {
         return await fn();
     } catch (error: any) {
-        const isRateLimit = error.message?.includes('429') || error.status === 429;
+        const isRateLimit = error.message?.includes('429') || error.status === 429 || error.message?.includes('Quota exceeded');
         const isServerOverload = error.message?.includes('503') || error.status === 503;
         
         if (retries > 0 && (isRateLimit || isServerOverload)) {
-            await new Promise(resolve => setTimeout(resolve, delay));
-            return retryWithBackoff(fn, retries - 1, delay * 2); // Exponential backoff
+            let waitTime = delay;
+            if (isRateLimit) {
+                const match = error.message?.match(/retry in (\d+(?:\.\d+)?)s/);
+                if (match && match[1]) {
+                    waitTime = (parseFloat(match[1]) + 1) * 1000;
+                } else {
+                    waitTime = Math.max(delay, 15000);
+                }
+            }
+            console.log(`Rate limited or overloaded. Retrying in ${waitTime}ms... (${retries} retries left)`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            return retryWithBackoff(fn, retries - 1, isRateLimit ? waitTime : delay * 2);
         }
         
         // If we're out of retries, or it's a different error, interpret and throw descriptive error
@@ -264,7 +274,7 @@ const generateContentOrThrow = async <T>(prompt: string, schema: object): Promis
         let jsonText = '';
         try {
             const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: localStorage.getItem('admin_ai_model') || 'gemini-2.5-flash',
                 contents: prompt,
                 config: {
                     responseMimeType: "application/json",
@@ -305,9 +315,9 @@ export const generateCoreItinerary = async (details: TripDetails): Promise<Itine
       REQUIREMENTS:
       1. Valid JSON only.
       2. All costs in INR. detailed_cost_breakdown sum must equal total_estimated_cost. Use realistic market prices for 2024.
-      3. Schedule for exactly ${details.duration} days.
+      3. Schedule for exactly ${details.duration} days. Max 3-4 impactful activities per day to optimize speed and readability.
       4. Populate 'travel_details' for Travel activities.
-      5. If multiple destinations are listed, logically split the days between them.
+      5. Relevance is critical: tailor every activity strictly to the user's interests (${details.interests.join(', ')}). Avoid generic tourist traps unless they align.
     `;
     return generateContentOrThrow<Itinerary>(prompt, coreItinerarySchema);
 };
@@ -426,7 +436,7 @@ export const getChatResponse = async (history: ChatMessage[], newMessage: string
         }
 
         const chat = ai.chats.create({
-            model: 'gemini-3-flash-preview',
+            model: localStorage.getItem('admin_ai_model') || 'gemini-2.5-flash',
             history: history.map(msg => ({
                 role: msg.role,
                 parts: [{ text: msg.text }]

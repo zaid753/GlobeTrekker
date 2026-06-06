@@ -37,7 +37,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onExit }) => {
     // Settings State (Real-time synced)
     const [maintenanceMode, setMaintenanceMode] = useState(false);
     const [allowSignups, setAllowSignups] = useState(true);
-    const [aiModel, setAiModel] = useState('gemini-3-flash-preview');
+    const [aiModel, setAiModel] = useState('gemini-2.5-flash');
 
     // Fix: Added missing toggleMaintenance function for Admin Panel
     const toggleMaintenance = () => {
@@ -111,7 +111,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onExit }) => {
             refreshData();
             setMaintenanceMode(localStorage.getItem('admin_maintenance_mode') === 'true');
             setAllowSignups(localStorage.getItem('admin_allow_signup') !== 'false');
-            setAiModel(localStorage.getItem('admin_ai_model') || 'gemini-3-flash-preview');
+            setAiModel(localStorage.getItem('admin_ai_model') || 'gemini-2.5-flash');
             setGeminiApiKey(localStorage.getItem('admin_gemini_key') || '••••••••••••••••••••••••');
             setWeatherApiKey(localStorage.getItem('admin_weather_key') || '••••••••••••••••');
             setMapsApiKey(localStorage.getItem('admin_maps_key') || '••••••••••••••••');
@@ -507,9 +507,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onExit }) => {
                                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] block mb-4">Select Target Model</label>
                                         <div className="grid gap-3">
                                             {[
-                                                { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash', desc: 'Lightning fast generation' },
-                                                { id: 'gemini-3-pro-preview', label: 'Gemini 3 Pro', desc: 'Deep reasoning performance' },
-                                                { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', desc: 'Standard stability' }
+                                                { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash', desc: 'Standard stability & high rate limits' },
+                                                { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro', desc: 'Deep reasoning performance' },
+                                                { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', desc: 'Fast, lower rate limit' },
                                             ].map(m => (
                                                 <button 
                                                     key={m.id}
