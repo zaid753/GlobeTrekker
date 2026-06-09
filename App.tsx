@@ -21,7 +21,8 @@ import HeroSection from './components/HeroSection';
 import { GlobeIcon } from './components/icons';
 import ItineraryReport from './components/ItineraryReport';
 import ShareModal from './components/ShareModal';
-import { auth, onAuthStateChanged, logout, FirebaseUser } from './services/firebase';
+import { auth, onAuthStateChanged, logout, FirebaseUser, db } from './services/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import Toast from './components/Toast';
 import ConfirmationModal from './components/ConfirmationModal';
 import AdminPanel from './components/AdminPanel';
@@ -73,6 +74,21 @@ const pageTransition = {
   transition: { duration: 0.4, ease: "easeOut" }
 };
 
+const logErrorToFirestore = async (errorMsg: string, stack?: string, type: string = 'runtime') => {
+  try {
+      await addDoc(collection(db, 'error_logs'), {
+          errorMsg,
+          stack: stack || null,
+          type,
+          timestamp: serverTimestamp(),
+          url: window.location.href,
+          userAgent: navigator.userAgent
+      });
+  } catch (e) {
+      console.error("Failed to log error to Firestore:", e);
+  }
+};
+
 function App() {
   const [tripDetails, setTripDetails] = useState<TripDetails | null>(null);
   const [itinerary, setItinerary] = useState<Itinerary | null>(null);
@@ -104,6 +120,39 @@ function App() {
   useEffect(() => {
       currentUserRef.current = currentUser;
   }, [currentUser]);
+
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      console.error("Global Error Caught:", event.error);
+      logErrorToFirestore(event.message, event.error?.stack, 'runtime');
+    };
+
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      console.error("Unhandled Promise Rejection:", event.reason);
+      let errorMsg = "Unknown promise rejection";
+      let stack = undefined;
+      
+      if (event.reason instanceof Error) {
+          errorMsg = event.reason.message;
+          stack = event.reason.stack;
+      } else if (typeof event.reason === 'string') {
+          errorMsg = event.reason;
+      } else if (event.reason) {
+          errorMsg = JSON.stringify(event.reason);
+      }
+      
+      const isAuthError = errorMsg.includes('auth/') || errorMsg.toLowerCase().includes('firebase: error');
+      logErrorToFirestore(errorMsg, stack, isAuthError ? 'authentication' : 'unhandled_rejection');
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
+  }, []);
 
   const generateImagesParallel = useCallback(async (itineraryForImages: Itinerary, detailsForImages: TripDetails) => {
     await processWithConcurrency(itineraryForImages.schedule, 2, async (day) => {
